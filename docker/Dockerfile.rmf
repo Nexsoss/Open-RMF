@@ -1,0 +1,57 @@
+# Dockerfile.rmf
+ARG ROS_DISTRO=lyrical
+FROM osrf/ros:${ROS_DISTRO}-desktop-full
+
+ARG ROS_DISTRO
+ENV ROS_DISTRO=${ROS_DISTRO}
+ENV DEBIAN_FRONTEND=noninteractive
+ENV HOME=/home/ws_rmf
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git cmake build-essential python3-pip python3-vcstool python3-rosdep \
+    curl wget lsb-release gnupg2 \
+    qtbase5-dev \
+    mesa-utils libgl1 libglx-mesa0 libgl1-mesa-dri \
+    libxcb-cursor0 \
+    libxcb-xinerama0 \
+    libglu1-mesa-dev \
+    libx11-xcb-dev \
+    ros-${ROS_DISTRO}-rmw-zenoh-cpp \
+    ros-${ROS_DISTRO}-ament-cmake-vendor-package \
+    ros-${ROS_DISTRO}-ros-gz \
+    ros-${ROS_DISTRO}-ros-gz-sim \
+    ros-${ROS_DISTRO}-ros-gz-bridge \
+    && pip3 install --break-system-packages flask-socketio \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN rosdep init || true
+
+WORKDIR /home/ws_rmf
+COPY ./rmf.repos rmf.repos 
+RUN mkdir -p src && vcs import src < rmf.repos
+
+RUN pip3 install --break-system-packages paho-mqtt
+
+RUN apt-get update && rosdep update && \
+    rosdep install --from-paths src --ignore-src --rosdistro ${ROS_DISTRO} -y \
+    --skip-keys "gz-ionic" \
+    --skip-keys "python3-paho-mqtt" \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN /bin/bash -c "source /opt/ros/${ROS_DISTRO}/setup.bash && \
+    colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release" \
+    && sed -i "\$isource \"/home/ws_rmf/install/setup.bash\"" /ros_entrypoint.sh
+
+
+# Patch: auto-respawn schedule_visualizer_node to work around crash on startup
+RUN VIZ_LAUNCH_FILE=$(find /home/ws_rmf/install -iname 'visualization.launch.xml' | head -n1) && \
+    if [ -z "$VIZ_LAUNCH_FILE" ]; then \
+        echo "ERROR: visualization.launch.xml not found, cannot apply respawn patch" && exit 1; \
+    fi && \
+    echo "Patching: $VIZ_LAUNCH_FILE" && \
+    sed -i 's|<node pkg="rmf_visualization_schedule" exec="schedule_visualizer_node"|<node pkg="rmf_visualization_schedule" exec="schedule_visualizer_node" respawn="true" respawn_delay="2"|' "$VIZ_LAUNCH_FILE" && \
+    grep -A2 'schedule_visualizer_node' "$VIZ_LAUNCH_FILE"
+    
+ENV RMW_IMPLEMENTATION=rmw_zenoh_cpp
+ENTRYPOINT ["/ros_entrypoint.sh"]
+CMD ["bash"]

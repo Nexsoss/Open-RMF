@@ -1,0 +1,68 @@
+# =============================================================================
+# Dockerfile.site-editor
+# RMF Site Editor (native desktop, Rust/Bevy) for authoring traffic maps.
+#
+# See rocker usage notes in README.md for the exact launch command.
+#
+# Ref: https://github.com/open-rmf/rmf_site
+# =============================================================================
+
+FROM ubuntu:resolute AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Dependencies per the official rmf_site README, plus X11/GL libs required
+# by Bevy's winit windowing backend on Linux.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl git pkg-config build-essential clang lld \
+    libgtk-3-dev libasound2-dev libudev-dev \
+    libx11-dev libxi-dev libxcursor-dev libxrandr-dev libxkbcommon-dev \
+    libgl1-mesa-dev libxcb-cursor0 \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
+RUN pkg-config --exists alsa && pkg-config --modversion alsa
+
+# Rust via rustup: the distro-packaged rustc is too old for rmf_site.
+ENV RUSTUP_HOME=/opt/rustup \
+    CARGO_HOME=/opt/cargo \
+    PATH=/opt/cargo/bin:$PATH
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
+    sh -s -- -y --default-toolchain stable --profile default
+
+WORKDIR /opt/rmf_site
+
+RUN git clone https://github.com/open-rmf/rmf_site.git . && \
+    cargo build --release
+
+# -----------------------------------------------------------------------
+# Runtime image
+# -----------------------------------------------------------------------
+FROM ubuntu:resolute
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgtk-3-0 libasound2t64 libudev1 \
+    libx11-6 libxi6 libxcursor1 libxrandr2 \
+    libxkbcommon0 libxkbcommon-x11-0 \
+    libgl1 libxcb-cursor0 \
+    libvulkan1 mesa-vulkan-drivers vulkan-tools libgl1-mesa-dri \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /opt/rmf_site/target/release/rmf_site_editor /usr/local/bin/rmf_site_editor
+
+WORKDIR /root/site_maps
+
+# AMD GPUs require the Vulkan (RADV) backend 
+ENV WGPU_BACKEND=vulkan
+
+# XDG_RUNTIME_DIR must exist and be writable for DRM/Vulkan device auth to
+# succeed inside the container
+ENV XDG_RUNTIME_DIR=/tmp/xdg-runtime
+RUN mkdir -p /tmp/xdg-runtime && chmod 700 /tmp/xdg-runtime
+
+WORKDIR /root/site_maps
+
+ENTRYPOINT ["rmf_site_editor"]

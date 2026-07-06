@@ -1,0 +1,41 @@
+# Dockerfile.dashboard
+FROM node:20-bookworm AS builder
+
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+ENV HUSKY=0
+RUN corepack enable && corepack prepare pnpm@9 --activate
+
+WORKDIR /opt/rmf/src/rmf-web
+RUN git clone --single-branch --branch main --depth 1 \
+    https://github.com/open-rmf/rmf-web.git .
+
+RUN node -e " \
+    const fs = require('fs'); \
+    const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8')); \
+    pkg.pnpm = pkg.pnpm || {}; \
+    pkg.pnpm.overrides = { \
+      ...pkg.pnpm.overrides, \
+      'react-router': '6.24.1', \
+      'react-router-dom': '6.24.1', \
+      'react': '18.3.1', \
+      'react-dom': '18.3.1' \
+    }; \
+    fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2)); \
+    console.log(JSON.stringify(pkg.pnpm.overrides, null, 2)); \
+  "
+
+RUN pnpm install --no-frozen-lockfile --ignore-scripts
+
+RUN echo "=== verify react-router ===" && find node_modules/.pnpm -maxdepth 1 -iname "react-router@*" -o -iname "react-router-dom@*" 2>&1 || true
+RUN echo "=== verify react ===" && find node_modules/.pnpm -maxdepth 1 -iname "react@*" 2>&1 || true
+
+WORKDIR /opt/rmf/src/rmf-web/packages/rmf-dashboard-framework
+RUN pnpm run --filter '{.}^...' build
+RUN pnpm exec vite -c examples/shared/vite.config.ts build examples/demo --sourcemap
+
+FROM nginx:1.26-bookworm
+COPY --from=builder /opt/rmf/src/rmf-web/packages/rmf-dashboard-framework/examples/demo/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

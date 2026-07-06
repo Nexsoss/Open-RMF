@@ -1,0 +1,103 @@
+# =============================================================================
+# docker-compose.yaml
+#
+# Runs the full RMF backend stack HEADLESS: rmf-sim (fleet adapter + Gazebo
+# server + schedule visualizer), zenoh-router, api-server, and rmf-web.
+#
+# GUI tools (RMF Site Editor, or Gazebo/RViz with a visible window for
+# debugging) are intentionally NOT defined here. They are launched manually
+# on the host via `rocker`, which handles X11/GPU wiring automatically.
+# See rocker-usage-notes.md.
+# =============================================================================
+
+services:
+  rmf:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.rmf
+      args:
+        ROS_DISTRO: lyrical
+    image: quay.io/nexsoss/open-rmf:lyrical-rmf
+    container_name: rmf
+    environment:
+      - RMW_IMPLEMENTATION=rmw_zenoh_cpp
+    #networks:
+    #  - rmf-net
+    network_mode: host
+    volumes:
+      - shared_data:/home/ws_rmf/install/rmf_demos_maps/share/rmf_demos_maps/maps
+    command: >
+      bash -c "source /home/ws_rmf/install/setup.bash &&
+      ros2 launch rmf_demos_gz ${WORLD:-office}.launch.xml headless:=1
+      server_uri:=ws://localhost:8000/_internal"
+    restart: unless-stopped
+    depends_on:
+      api-server:
+        condition: service_started
+      zenoh-router:
+        condition: service_healthy
+
+  zenoh-router:
+    image: eclipse/zenoh:1.9.0-47-g55263c9da
+    container_name: zenoh-router
+    #networks:
+    #  - rmf-net
+    network_mode: host
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "7447"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api-server:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.api-server
+    image: quay.io/nexsoss/open-rmf:lyrical-api-server
+    container_name: api-server
+    environment:
+      - RMW_IMPLEMENTATION=rmw_zenoh_cpp
+    depends_on:
+      zenoh-router:
+        condition: service_healthy
+    #networks:
+    #  - rmf-net
+    network_mode: host
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  rmf-web:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.dashboard
+    image: quay.io/nexsoss/open-rmf:lyrical-rmf-web-dashboard
+    container_name: rmf-web
+    depends_on:
+      api-server:
+        condition: service_started
+      zenoh-router:
+        condition: service_healthy
+    #networks:
+    #  - rmf-net
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+
+networks:
+  rmf-net:
+    driver: bridge
+
+volumes:
+  shared_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${PWD}/maps
