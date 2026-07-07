@@ -34,6 +34,15 @@ RUN pnpm run --filter '{.}^...' build
 RUN pnpm exec vite -c examples/shared/vite.config.ts build examples/demo --sourcemap
 
 FROM nginx:1.31
+
+LABEL org.opencontainers.image.title="open-rmf-web-dashboard" \
+      org.opencontainers.image.description="Open-RMF web dashboard" \
+      org.opencontainers.image.vendor="Nexsoss" \
+      org.opencontainers.image.source="https://github.com/nexsoss/Open-RMF" \
+      org.opencontainers.image.documentation="https://github.com/nexsoss/Open-RMF" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.attribution="Open-RMF core packages (Apache-2.0) Copyright Open Robotics"
+
 COPY --from=builder /opt/rmf/src/rmf-web/packages/rmf-dashboard-framework/examples/demo/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 

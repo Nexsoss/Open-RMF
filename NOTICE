@@ -1,0 +1,77 @@
+Open-RMF — compiled images for ease of use
+Copyright 2026 Nexsoss
+
+This product includes software developed by third parties:
+
+--------------------------------------------------------------------------------
+Apache License, Version 2.0
+--------------------------------------------------------------------------------
+The following components are licensed under the Apache License, Version 2.0
+(http://www.apache.org/licenses/LICENSE-2.0). Their respective copyright
+notices are reproduced from the upstream projects; modifications, if any,
+are noted below.
+
+  • Open-RMF core packages — Copyright Open Robotics
+    https://github.com/open-rmf
+    Source repositories (pinned commits listed in repos/rmf.repos):
+      - open-rmf/ament_cmake_catch2
+      - open-rmf/rmf_api_msgs
+      - open-rmf/rmf_battery
+      - open-rmf/rmf_building_map_msgs
+      - open-rmf/rmf_internal_msgs
+      - open-rmf/rmf_ros2
+      - open-rmf/rmf_task
+      - open-rmf/rmf_traffic
+      - open-rmf/rmf_utils
+      - open-rmf/rmf_visualization
+      - open-rmf/rmf_visualization_msgs
+      - open-rmf/menge_vendor
+      - open-rmf/nlohmann_json_schema_validator_vendor
+      - open-rmf/pybind11_json_vendor
+
+  • Open-RMF simulation & demos — Copyright Open Robotics
+    Source repositories (pinned commits listed in repos/rmf-sim.repos):
+      - open-rmf/rmf_demos
+      - open-rmf/rmf_simulation
+      - open-rmf/rmf_traffic_editor
+
+  • rmf-web (REST API + dashboard framework) — Copyright Open Robotics
+    https://github.com/open-rmf/rmf-web
+    https://github.com/open-rmf/rmf-dashboard-framework
+
+  • ROS 2 — Copyright Open Source Robotics Foundation / Open Robotics
+    https://www.ros.org/
+
+Modifications by Nexsoss:
+  • The patches documented in docker/Dockerfile.rmf to set
+    respawn="true" respawn_delay="2" on rmf_visualization_schedule's
+    schedule_visualizer_node (workaround for upstream issues
+    open-rmf/rmf#546 and open-rmf/rmf#637).
+  • Container layer / Dockerfiles / docker-compose manifests in this
+    repository. These additions are Copyright 2026 Nexsoss and licensed
+    under Apache-2.0.
+
+--------------------------------------------------------------------------------
+Eclipse Public License 2.0 (EPL-2.0) / Dual-licensed (EPL-2.0 OR Apache-2.0)
+--------------------------------------------------------------------------------
+  • Eclipse Zenoh — Copyright Eclipse Foundation, Inc. and contributors
+    https://github.com/eclipse-zenoh/zenoh
+    Used unmodified as the zenoh-router service in docker-compose.yaml.
+
+--------------------------------------------------------------------------------
+3-Clause BSD License
+--------------------------------------------------------------------------------
+  • rocker — Copyright Open Source Robotics Foundation
+    https://github.com/osrf/rocker
+    Invoked from the host only; not bundled into any image produced by
+    this repository.
+
+================================================================================
+Trademarks
+================================================================================
+"ROS 2" is a trademark of Open Source Robotics Foundation / Open Robotics.
+"Open-RMF" is a trademark of Open Robotics.
+This distribution is an unofficial convenience packaging and is not
+affiliated with, endorsed by, or sponsored by Open Robotics, the Eclipse
+Foundation, or Open Source Robotics Foundation, except where upstream
+license terms grant such rights.

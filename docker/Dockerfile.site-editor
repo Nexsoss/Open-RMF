@@ -41,6 +41,14 @@ RUN git clone https://github.com/open-rmf/rmf_site.git . && \
 # -----------------------------------------------------------------------
 FROM ubuntu:resolute
 
+LABEL org.opencontainers.image.title="open-rmf-site-editor" \
+      org.opencontainers.image.description="RMF Site Editor (Rust/Bevy) desktop app for authoring traffic maps" \
+      org.opencontainers.image.vendor="Nexsoss" \
+      org.opencontainers.image.source="https://github.com/nexsoss/Open-RMF" \
+      org.opencontainers.image.documentation="https://github.com/nexsoss/Open-RMF#readme" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.attribution="rmf_site (Apache-2.0) Copyright Open Robotics"
+
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \

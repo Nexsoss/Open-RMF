@@ -1,12 +1,12 @@
 # Open-RMF — compiled images for ease of use
+> Open-source project, maintained and supported by [Nexsoss](https://nexsoss.ai).
+> Licensed under Apache-2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
 Pre-built, ready-to-run Docker images for the [Open-RMF](https://www.openrmf.org/)
 ecosystem: the ROS 2 simulation/fleet adapter stack, the REST API server, the web
 dashboard, and the RMF Site Editor.
 
-> Pick the branch that matches your ROS 2 distribution (e.g. branch `lyrical` for
-> ROS 2 `lyrical`). Each branch pins the matching `ROS_DISTRO` build-arg in the
-> Dockerfiles.
+Pick the branch that matches your ROS 2 distribution (e.g. branch `lyrical` for > ROS 2 `lyrical`). Each branch pins the matching `ROS_DISTRO` build-arg in the Dockerfiles.
 
 ---
 

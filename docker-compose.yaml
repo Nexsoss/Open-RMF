@@ -5,6 +5,9 @@
 # server + schedule visualizer), zenoh-router, api-server, and rmf-web.
 #
 # See notes in README.md
+#
+# Images maintained by Nexsoss (https://github.com/nexsoss).
+# Underlying software © Open Robotics 
 # =============================================================================
 
 # build-only dependency

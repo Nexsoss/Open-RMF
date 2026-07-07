@@ -2,6 +2,9 @@
 # docker-compose.ci.yaml
 #
 # CI integration-test variant of docker-compose.yaml.
+#
+# Images maintained by Nexsoss (https://github.com/nexsoss).
+# Underlying software © Open Robotics 
 # =============================================================================
 
 services:
