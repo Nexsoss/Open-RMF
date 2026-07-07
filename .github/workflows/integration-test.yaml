@@ -46,9 +46,11 @@ jobs:
           docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:nightly_${{ steps.tags.outputs.short }}_api-server
           docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:nightly_${{ steps.tags.outputs.short }}_web-dashboard
 
-      - name: Start stack (excluding rmf-base)
+      - name: Start stack from docker-compose.ci.yaml
+        env:
+          TAG: ${{ steps.tags.outputs.short }}
         run: |
-          docker compose up -d --wait --wait-timeout 300 \
+          docker compose -f docker-compose.ci.yaml up -d --wait --wait-timeout 300 \
             zenoh-router rmf-api-server rmf-web-dashboard rmf-sim
 
       - name: Soak period to catch delayed crashes
@@ -58,7 +60,7 @@ jobs:
         run: |
           set -uo pipefail
           FAILED=0
-          for c in $(docker compose ps -q); do
+          for c in $(docker compose -f docker-compose.ci.yaml ps -q); do
             name=$(docker inspect --format '{{.Name}}' "$c" | sed 's/^\///')
             state=$(docker inspect --format '{{.State.Status}}' "$c")
             restarts=$(docker inspect --format '{{.RestartCount}}' "$c")
@@ -83,8 +85,8 @@ jobs:
 
       - name: Dump logs on failure
         if: failure()
-        run: docker compose logs --no-color
+        run: docker compose -f docker-compose.ci.yaml logs --no-color
 
       - name: Tear down
         if: always()
-        run: docker compose down -v --remove-orphans
+        run: docker compose -f docker-compose.ci.yaml down -v --remove-orphans

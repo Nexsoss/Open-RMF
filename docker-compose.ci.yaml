@@ -1,0 +1,72 @@
+# =============================================================================
+# docker-compose.ci.yaml
+#
+# CI integration-test variant of docker-compose.yaml.
+# =============================================================================
+
+services:
+  zenoh-router:
+    image: eclipse/zenoh:1.9.0-47-g55263c9da
+    container_name: zenoh-router
+    network_mode: host
+    restart: "no"
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "7447"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rmf-api-server:
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_OWNER:-nexsoss}/${IMAGE_NAME:-open-rmf}:nightly_${TAG:-lyrical}_api-server
+    container_name: rmf-api-server
+    environment:
+      - RMW_IMPLEMENTATION=rmw_zenoh_cpp
+    depends_on:
+      zenoh-router:
+        condition: service_healthy
+    network_mode: host
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: "no"
+
+  rmf-web-dashboard:
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_OWNER:-nexsoss}/${IMAGE_NAME:-open-rmf}:nightly_${TAG:-lyrical}_web-dashboard
+    container_name: rmf-web-dashboard
+    depends_on:
+      rmf-api-server:
+        condition: service_started
+      zenoh-router:
+        condition: service_healthy
+    ports:
+      - "3000:80"
+    restart: "no"
+
+  rmf-sim:
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_OWNER:-nexsoss}/${IMAGE_NAME:-open-rmf}:nightly_${TAG:-lyrical}_sim
+    container_name: rmf-sim
+    environment:
+      - RMW_IMPLEMENTATION=rmw_zenoh_cpp
+    network_mode: host
+    volumes:
+      - shared_data:/home/ws_rmf/install/rmf_demos_maps/share/rmf_demos_maps/maps
+    command: >
+      bash -c "source /home/ws_rmf/install/setup.bash &&
+      ros2 launch rmf_demos_gz ${WORLD:-office}.launch.xml headless:=1
+      server_uri:=ws://localhost:8000/_internal"
+    restart: "no"
+    depends_on:
+      rmf-api-server:
+        condition: service_started
+      zenoh-router:
+        condition: service_healthy
+
+volumes:
+  shared_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${PWD}/maps

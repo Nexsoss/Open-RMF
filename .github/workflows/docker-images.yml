@@ -53,16 +53,6 @@ jobs:
           cache-from: type=gha,scope=rmf
           cache-to: type=gha,mode=max,scope=rmf
 
-      - name: Scan rmf image with Trivy
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          scan-type: image
-          image-ref: ghcr.io/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:nightly_${{ steps.tags.outputs.short }}
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          exit-code: '1'
-          format: table
-
       - name: Build and push rmf-sim
         uses: docker/build-push-action@v6
         with:
@@ -76,17 +66,6 @@ jobs:
             ghcr.io/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:nightly_${{ steps.tags.outputs.short }}_sim
           cache-from: type=gha,scope=rmf
           cache-to: type=gha,mode=max,scope=rmf
-
-      - name: Scan rmf image with Trivy
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          scan-type: image
-          image-ref: ghcr.io/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:nightly_${{ steps.tags.outputs.short }}_sim
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          exit-code: '1'
-          format: table
-
 
       - name: Build and push api-server
         uses: docker/build-push-action@v6
@@ -104,16 +83,6 @@ jobs:
           cache-from: type=gha,scope=api-server
           cache-to: type=gha,mode=max,scope=api-server
 
-      - name: Scan api-server image with Trivy
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          scan-type: image
-          image-ref: ghcr.io/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:nightly_${{ steps.tags.outputs.short }}_api-server
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          exit-code: '1'
-          format: table
-
       - name: Build and push rmf-web (dashboard)
         uses: docker/build-push-action@v6
         with:
@@ -127,16 +96,6 @@ jobs:
           cache-from: type=gha,scope=rmf-web
           cache-to: type=gha,mode=max,scope=rmf-web
 
-      - name: Scan rmf-web image with Trivy
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          scan-type: image
-          image-ref: ghcr.io/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:nightly_${{ steps.tags.outputs.short }}_web-dashboard
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          exit-code: '1'
-          format: table
-
       - name: Build and push site-editor
         uses: docker/build-push-action@v6
         with:
@@ -149,13 +108,3 @@ jobs:
             ghcr.io/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:nightly_${{ steps.tags.outputs.short }}_site-editor
           cache-from: type=gha,scope=site-editor
           cache-to: type=gha,mode=max,scope=site-editor
-
-      - name: Scan site-editor image with Trivy
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          scan-type: image
-          image-ref: ghcr.io/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:nightly_${{ steps.tags.outputs.short }}_site-editor
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          exit-code: '1'
-          format: table
