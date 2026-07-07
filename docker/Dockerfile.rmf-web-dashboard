@@ -1,5 +1,5 @@
-# Dockerfile.dashboard
-FROM node:20-bookworm AS builder
+# Dockerfile.rmf-web-dashboard
+FROM node:24 AS builder
 
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 ENV HUSKY=0
@@ -33,7 +33,7 @@ WORKDIR /opt/rmf/src/rmf-web/packages/rmf-dashboard-framework
 RUN pnpm run --filter '{.}^...' build
 RUN pnpm exec vite -c examples/shared/vite.config.ts build examples/demo --sourcemap
 
-FROM nginx:1.26-bookworm
+FROM nginx:1.31
 COPY --from=builder /opt/rmf/src/rmf-web/packages/rmf-dashboard-framework/examples/demo/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 

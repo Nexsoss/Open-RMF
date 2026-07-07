@@ -12,10 +12,8 @@ dashboard, and the RMF Site Editor.
 
 ## Table of contents
 
-- [Architecture](#architecture)
 - [Prerequisites](#prerequisites)
 - [Build](#build)
-- [Push to quay.io](#push-to-quayio)
 - [Run](#run)
 - [Accessing the services](#accessing-the-services)
 - [Stop / tear down](#stop--tear-down)
@@ -23,33 +21,25 @@ dashboard, and the RMF Site Editor.
 - [Running GUI tools via `rocker`](#running-gui-tools-via-rocker)
   - [RMF Site Editor](#rmf-site-editor)
   - [Debugging Gazebo / RViz](#debugging-gazebo--rviz)
-- [Repo layout](#repo-layout)
 - [Notes & troubleshooting](#notes--troubleshooting)
 
 ---
 
-## Architecture
+Images are layered. `Dockerfile.rmf` is a **shared base** that compiles the core RMF packages from `repos/rmf.repos`. `Dockerfile.rmf-sim` and `Dockerfile.rmf-api-server` both derive from that base — they add only the apt/pip packages and build steps specific to their role. GUI/Qt/GL/X11/Gazebo packages and `flask-socketio` live in `rmf-sim` only; the api-server image is slimmer and has no GUI dependencies.
 
-Four services come up under `docker-compose`. The first three are backend, the
-fourth is the web UI. All run **headless**; GUIs are launched separately on the
-host via `rocker` (see below).
+Four services come up under `docker-compose`. The first three are backend, the fourth is the web UI. All run **headless**; GUIs are launched separately on the host via `rocker` (see below).
 
-| Service          | Image built from                | Image tag                                                | Role                                                                                |
-|------------------|---------------------------------|----------------------------------------------------------|-------------------------------------------------------------------------------------|
-| `rmf`            | `docker/Dockerfile.rmf`         | `quay.io/nexsoss/open-rmf:lyrical-rmf`                   | ROS 2 + RMF + `rmf_demos` + fleet adapter + Gazebo server + schedule visualizer     |
-| `zenoh-router`   | `eclipse/zenoh:1.9.0-...`       | `eclipse/zenoh:1.9.0-47-g55263c9da`                      | DDS/RMW bridge that connects the in-container ROS 2 graph to the api-server         |
-| `api-server`     | `docker/Dockerfile.api-server`  | `quay.io/nexsoss/open-rmf:lyrical-api-server`            | `rmf-web` REST API server, exposes RMF tasks/fleets/dispenser state over HTTP       |
-| `rmf-web`        | `docker/Dockerfile.dashboard`   | `quay.io/nexsoss/open-rmf:lyrical-rmf-web-dashboard`    | Nginx-served static build of the `rmf-dashboard-framework` demo dashboard           |
-| `rmf-site-editor`(GUI) | `docker/Dockerfile.site-editor` | `quay.io/nexsoss/open-rmf:rmf-site-editor`                      | Rust/Bevy native desktop editor; build-only, launched via `rocker` (not in compose) |
+| Service          | Image built from                | Role                                                                                |
+|------------------|---------------------------------|-------------------------------------------------------------------------------------|
+| `rmf-base`       | `docker/Dockerfile.rmf`         | Shared base: ROS 2 + RMF core packages from `rmf.repos`. Build-only; never runs.     |
+| `rmf-sim`        | `docker/Dockerfile.rmf-sim`     | Base + Gazebo + Qt/GL/X11 + `rmf_demos`/`rmf_simulation` from `rmf-sim.repos`        |
+| `zenoh-router`   | `eclipse/zenoh:...`             | Zenoh router run from upstream zenoh image |
+| `api-server`     | `docker/Dockerfile.rmf-api-server` | `rmf-web`API server       |
+| `rmf-web`        | `docker/Dockerfile.rmf-web-dashboard` | Static build of the `rmf-dashboard-framework` demo dashboard           |
+| `rmf-site-editor`(GUI) | `docker/Dockerfile.site-editor` | RMF Site Editor desktop; build-only, launched via `rocker` |
 
-The `image:` keys in `docker-compose.yaml` set the tag for every service that
-has a `build:` block, so `docker compose build` tags the result with the
-`quay.io/nexsoss/open-rmf:lyrical-*` name automatically (no separate `docker
-tag` step needed).
 
-A shared `./maps` directory is mounted into `rmf` so that maps authored in the
-Site Editor (also written into `./maps`) are visible to the simulator without
-any manual copying.
+A shared `./maps` directory is mounted into `rmf` so that maps authored in the Site Editor (also written into `./maps`) are visible to the simulator without any manual copying.
 
 ---
 
@@ -57,18 +47,10 @@ any manual copying.
 
 On the host machine:
 
-- **Docker** ≥ 20.10 with the Compose plugin (`docker compose ...`) **or**
-  Docker Compose v1 (`docker-compose ...`). The commands below use the v2
-  `docker compose` form.
-- **Git** (only needed if you cloned this repo).
-- ~15 GB of free disk space — the `rmf` and `api-server` images pull and build
-  the full RMF source tree.
-- For GUI tools (`rocker` flow), also see the
-  [Running GUI tools via rocker](#running-gui-tools-via-rocker) section.
-- For NVIDIA GPU acceleration inside the containers, install the
-  [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
-  on the host. The compose file does not pin GPU access; rocker injects it
-  only for the manually-launched GUI containers.
+- **Docker**, Compose plugin (`docker compose ...`)
+- ~15 GB of free disk space 
+- For GUI tools (`rocker` flow), also see the [Running GUI tools via rocker](#running-gui-tools-via-rocker) section.
+- For NVIDIA GPU acceleration inside the containers, install the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) on the host. 
 
 Clone the repo and switch to the branch matching your ROS distro:
 
@@ -82,39 +64,22 @@ git checkout lyrical   # or whichever ROS 2 distro branch you need
 
 ## Build
 
-The whole stack is one command. `docker compose build` (or `compose up --build`
-on first run) builds each image in dependency order:
+The whole stack is one command. `docker compose build` (or `compose up --build`on first run) builds each image in dependency order. Because the derived images (`rmf`, `api-server`) depend on the base, build the base first or rely on Compose's dependency resolution:
 
 ```bash
-docker compose build
+docker compose build rmf-base    # build the shared base explicitly (recommended)
+docker compose build             # then build the rest
 ```
 
 To build only a subset:
 
 ```bash
-docker compose build rmf           # just the RMF sim / fleet adapter image
-docker compose build api-server    # just the REST API image
-docker compose build rmf-web       # just the dashboard image
+docker compose build rmf-sim        # just the RMF sim / fleet adapter image
+docker compose build rmf-api-server # just the REST API image
+docker compose build rmf-web        # just the dashboard image
 ```
 
-The `zenoh-router` service pulls a prebuilt image — it has no `build:` block
-and is not compiled locally.
-
-> **Time & cache:** the first build of the `rmf` image is the heaviest —
-> it compiles all of `rmf_traffic`, `rmf_fleet_adapter`, `rmf_demos`, etc.
-> Subsequent builds are fast as long as you don't change `Dockerfile.rmf`.
-
-### Build args
-
-`Dockerfile.rmf` and `Dockerfile.api-server` accept a `ROS_DISTRO` build-arg
-(default `lyrical`). Override it either in `docker-compose.yaml` (the `rmf`
-service already pins `ROS_DISTRO: lyrical`) or directly:
-
-```bash
-docker build --build-arg ROS_DISTRO=lyrical -f docker/Dockerfile.rmf -t rmf-sim:lyrical .
-```
-
----
+The `zenoh-router` service pulls a prebuilt image.
 
 ## Run
 
@@ -124,23 +89,14 @@ Bring the whole stack up in the background:
 docker compose up -d
 ```
 
-This starts `rmf` → `zenoh-router` → `api-server` → `rmf-web` in the correct
-order (Compose `depends_on`) and tails logs.
+This starts `rmf` → `zenoh-router` → `api-server` → `rmf-web` in the correct order.
 
 To watch logs:
 
 ```bash
 docker compose logs -f               # all services
-docker compose logs -f rmf           # just the RMF sim
-docker compose logs -f api-server    # just the API
+docker compose logs -f rmf-sim       # just the RMF sim
 ```
-
-To run attached (Ctrl-C to stop):
-
-```bash
-docker compose up
-```
-
 ---
 
 ## Accessing the services
@@ -148,50 +104,24 @@ docker compose up
 | Service          | URL (from the host)                                | Notes                                              |
 |------------------|----------------------------------------------------|----------------------------------------------------|
 | `rmf-web`        | http://localhost:3000                              | Open-RMF web dashboard                             |
-| `api-server`     | http://localhost:8080                              | REST API (FastAPI / uvicorn)                       |
-| `api-server`     | ws://localhost:8080                                | WebSocket for live RMF state                       |
-| `rmf`            | (internal only — no published port)                | ROS 2 graph reachable through the bridge            |
-| `zenoh-router`   | (internal only — no published port)                | DDS-to-Zenoh router                                |
-
-The dashboard at `:3000` is the main entry point for operators. It talks to
-`api-server` at `:8080`, which in turn talks to the ROS 2 graph inside the
-`rmf` container via `zenoh-router`.
+| `rmf-api-server` | http://localhost:8000                              | REST API (FastAPI / uvicorn)                       |
+| `rmf-api-server` | ws://localhost:8080                                | WebSocket for live RMF state                       |
+| `zenoh-router`   | (internal only — no published port)                | Zenoh router                                       |
 
 ---
 
 ## Stop / tear down
 
 ```bash
-docker compose stop            # stop containers, keep them
 docker compose down            # stop and remove containers + the network
-docker compose down -v         # also drop anonymous volumes (if any)
 ```
-
-`docker compose down` does **not** delete built images — they remain in the
-local Docker image cache for the next `up`.
-
----
-
-## Updating / rebuilding a single service
-
-After pulling new code or changing a Dockerfile:
-
-```bash
-docker compose build api-server && docker compose up -d api-server
-```
-
-For the heavy `rmf` image, prefer `--no-cache` only when you actually changed
-build dependencies; otherwise the Docker layer cache will reuse the ROS 2
-install and just rebuild the RMF packages that changed.
 
 ---
 
 ## Running GUI tools via `rocker`
 
-GUI applications (RMF Site Editor, and Gazebo/RViz when visually debugging the
-simulation) are **not** part of `docker-compose`. They run on the host via
-[`rocker`](https://github.com/osrf/rocker), which injects X11 / GPU
-configuration at container launch time. Compose stays clean and headless.
+GUI applications (RMF Site Editor, and Gazebo/RViz when visually debugging the simulation) are **not** part of `docker-compose`. They run on the host via
+[`rocker`](https://github.com/osrf/rocker), which injects X11 / GPU configuration at container launch time. Compose stays clean and headless.
 
 ### 1. Install rocker (on the host, not inside any container)
 
@@ -203,9 +133,7 @@ pip install rocker
 
 ### 2. RMF Site Editor
 
-The site-editor image is published as `quay.io/nexsoss/open-rmf:rmf-site-editor`.
-You can either pull the published image (recommended — no Rust toolchain
-needed) or build it locally.
+The site-editor image is published as `quay.io/nexsoss/open-rmf:rmf-site-editor`. You can either pull the published image (recommended — no Rust toolchain needed) or build it locally.
 
 **Pull from quay.io and launch:**
 
@@ -216,13 +144,12 @@ docker pull quay.io/nexsoss/open-rmf:rmf-site-editor
 rocker --x11 --user --volume ./maps:/root/site_maps \
     -- quay.io/nexsoss/open-rmf:rmf-site-editor
 
-# With an NVIDIA GPU (recommended — hardware-accelerated rendering):
+# With an NVIDIA GPU:
 rocker --nvidia --x11 --user --volume ./maps:/root/site_maps \
     -- quay.io/nexsoss/open-rmf:rmf-site-editor
 ```
 
-**Or build locally** (tag it with the quay tag so the build & push command is
-the same):
+**Or build locally** 
 
 ```bash
 docker build -f docker/Dockerfile.site-editor \
@@ -233,30 +160,22 @@ rocker --x11 --user --volume ./maps:/root/site_maps \
     -- quay.io/nexsoss/open-rmf:rmf-site-editor
 ```
 
-Exported map files (`.building.yaml` / SDF) land in `./maps` on the host,
-which is the same directory mounted into the `rmf` service in
-`docker-compose.yaml` — no manual copying needed between the two.
+Exported map files (`.building.yaml` / SDF) land in `./maps` on the host.
 
 ### 3. Debugging Gazebo / RViz
 
-`rmf` runs headless by default under compose. To visually debug Gazebo or RViz,
-launch the same image manually via rocker instead of changing anything in
-`docker-compose.yaml`. Use the published `quay.io` image:
+`rmf` runs headless by default under compose. To visually debug Gazebo or RViz, launch the same image manually via rocker instead of changing anything in `docker-compose.yaml`. 
 
 ```bash
-docker pull quay.io/nexsoss/open-rmf:lyrical-rmf
+docker pull quay.io/nexsoss/open-rmf:lyrical_rmf-sim
 
 rocker --nvidia --x11 --user \
     --volume ./maps:/home/ws_rmf/install/rmf_demos_maps/share/rmf_demos_maps/maps \
-    -- quay.io/nexsoss/open-rmf:lyrical-rmf \
+    -- quay.io/nexsoss/open-rmf:lyrical_rmf-sim \
     bash -c "source /opt/ros/lyrical/setup.bash && \
              source /home/ws_rmf/install/setup.bash && \
              ros2 launch rmf_demos_gz office.launch.xml headless:=0"
 ```
-
-Or build the image locally with `docker compose build rmf` (which tags it
-`quay.io/nexsoss/open-rmf:lyrical-rmf` automatically) and use the same image
-reference above.
 
 ### rocker flag reference
 
@@ -269,23 +188,6 @@ reference above.
 
 ---
 
-## Repo layout
-
-```
-.
-├── README.md                       this file
-├── docker-compose.yaml             backend stack (rmf, zenoh-router, api-server, rmf-web)
-├── docker/
-│   ├── Dockerfile.rmf              ROS 2 + RMF + rmf_demos + fleet adapter
-│   ├── Dockerfile.api-server       rmf-web REST API (FastAPI/uvicorn)
-│   ├── Dockerfile.dashboard        rmf-dashboard-framework demo build, served by nginx
-│   ├── Dockerfile.site-editor      rmf_site (Rust/Bevy) native desktop binary
-│   └── nginx.conf                  nginx site config for the dashboard image
-└── maps/                           shared map directory (mounted into rmf; written by Site Editor)
-```
-
----
-
 ## Notes & troubleshooting
 
 - **rocker builds a temporary derived image** on top of the one you pass in;
@@ -293,18 +195,16 @@ reference above.
 - `docker-compose.yaml` has **no** `site-editor` service and **no** X11 wiring
   on `rmf` — both are launched manually via rocker only when a GUI is actually
   needed.
-- The web-hosted WASM build of the Site Editor
-  (https://open-rmf.github.io/rmf_site/) is available with zero setup for quick
-  viewing/demos, but it currently lacks map save/load support, so use the
-  native desktop build above for real editing work.
 - **`rmf` image patches** `rmf_visualization_schedule`'s
   `visualization.launch.xml` to set `respawn="true" respawn_delay="2"` on the
   `schedule_visualizer_node`. This is a workaround for upstream segfaults
   ([open-rmf/rmf#546](https://github.com/open-rmf/rmf/issues/546),
-  [open-rmf/rmf#637](https://github.com/open-rmf/rmf/issues/637)).
+  [open-rmf/rmf#637](https://github.com/open-rmf/rmf/issues/637)). The patch
+  lives in the **base** (`Dockerfile.rmf`) because `rmf_visualization` is
+  built from `rmf.repos`, not `rmf-sim.repos`.
 - **Dashboard build pins** specific versions of `react`, `react-dom`, and
-  `react-router` via `pnpm.overrides` in `Dockerfile.dashboard`. If you upgrade
+  `react-router` via `pnpm.overrides` in `Dockerfile.rmf-web-dashboard`. If you upgrade
   `rmf-web`, re-check that those overrides are still needed.
 - **API server pins** for `pydantic` and `asyncpg` are intentionally relaxed
-  to `>=` in `Dockerfile.api-server`. Keep an eye on this if you bump
+  to `>=` in `Dockerfile.rmf-api-server`. Keep an eye on this if you bump
   `rmf-web`.

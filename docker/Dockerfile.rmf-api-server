@@ -1,6 +1,7 @@
-# Dockerfile.api-server
+# Dockerfile.rmf-api-server — derives from the shared rmf base.
 ARG ROS_DISTRO=lyrical
-FROM ros:${ROS_DISTRO}-ros-base
+ARG RMF_IMAGE=open-rmf:${ROS_DISTRO}-rmf
+FROM ${RMF_IMAGE}
 
 ARG ROS_DISTRO
 ENV ROS_DISTRO=${ROS_DISTRO}
@@ -9,15 +10,7 @@ ENV RMW_IMPLEMENTATION=rmw_zenoh_cpp
 ENV HOME=/root
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git cmake build-essential python3-pip python3-vcstool python3-rosdep \
-    curl wget lsb-release gnupg2 \
-    qtbase5-dev \
-    mesa-utils libgl1 libglx-mesa0 libgl1-mesa-dri \
-    libxcb-cursor0 \
-    libxcb-xinerama0 \
-    libglu1-mesa-dev \
-    libx11-xcb-dev \
-    ros-${ROS_DISTRO}-rmw-zenoh-cpp \
+    git python3-pip \
     ros-${ROS_DISTRO}-rmf-fleet-msgs \
     ros-${ROS_DISTRO}-rmf-building-map-msgs \
     ros-${ROS_DISTRO}-rmf-door-msgs \
@@ -28,8 +21,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-${ROS_DISTRO}-rmf-charger-msgs \
     ros-${ROS_DISTRO}-rmf-reservation-msgs \
     ros-${ROS_DISTRO}-rmf-site-map-msgs \
-    ros-${ROS_DISTRO}-rmf-visualization-msgs \
-    ros-${ROS_DISTRO}-rmf-api-msgs \
     && pip3 install --break-system-packages pipenv \
     && rm -rf /var/lib/apt/lists/*
 
@@ -41,6 +32,7 @@ RUN pipenv requirements > /tmp/requirements.txt
 RUN grep -v -iE "^(asyncpg|pydantic-core|pydantic)" /tmp/requirements.txt > /tmp/requirements-filtered.txt
 RUN pip3 install --break-system-packages -r /tmp/requirements-filtered.txt
 
+# temp hacks to relax pydantic and asyncpg pins in api-server
 RUN find packages/api-server -maxdepth 1 \( -name "pyproject.toml" -o -name "setup.py" -o -name "setup.cfg" \) | xargs grep -l "pydantic\|asyncpg" \
     | xargs -r sed -i -E \
         -e 's/pydantic~=2\.8\.0/pydantic>=2.8.0/g' \
@@ -57,4 +49,6 @@ RUN python3 -c "import uvicorn; print('uvicorn OK:', uvicorn.__file__)"
 WORKDIR /opt/rmf/src/rmf-web/packages/api-server
 EXPOSE 8000
 ENTRYPOINT ["/bin/bash", "-c"]
-CMD ["source /opt/ros/${ROS_DISTRO}/setup.bash && python3 -m api_server"]
+
+# Source the base's install space before /opt/ros so the source-built msgs win.
+CMD ["source /home/ws_rmf/install/setup.bash && source /opt/ros/${ROS_DISTRO}/setup.bash && python3 -m api_server"]

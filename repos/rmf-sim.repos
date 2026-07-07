@@ -1,0 +1,13 @@
+repositories:
+  demonstrations/rmf_demos:
+    type: git
+    url: https://github.com/open-rmf/rmf_demos.git
+    version: de9a718
+  rmf/rmf_simulation:
+    type: git
+    url: https://github.com/open-rmf/rmf_simulation.git
+    version: fcf6fca
+  rmf/rmf_traffic_editor:
+    type: git
+    url: https://github.com/open-rmf/rmf_traffic_editor.git
+    version: 922a663

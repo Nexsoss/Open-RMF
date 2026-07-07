@@ -1,0 +1,42 @@
+# Dockerfile.rmf-sim — derives from the shared rmf base
+ARG ROS_DISTRO=lyrical
+ARG RMF_IMAGE=open-rmf:${ROS_DISTRO}-rmf
+FROM ${RMF_IMAGE}
+
+ARG ROS_DISTRO
+ENV ROS_DISTRO=${ROS_DISTRO}
+ENV DEBIAN_FRONTEND=noninteractive
+ENV HOME=/home/ws_rmf
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    qtbase5-dev \
+    mesa-utils libgl1 libglx-mesa0 libgl1-mesa-dri \
+    libxcb-cursor0 libxcb-xinerama0 \
+    libglu1-mesa-dev \
+    libx11-xcb-dev \
+    ros-${ROS_DISTRO}-ros-gz \
+    ros-${ROS_DISTRO}-ros-gz-sim \
+    ros-${ROS_DISTRO}-ros-gz-bridge \
+    && pip3 install --break-system-packages flask-socketio \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /home/ws_rmf
+COPY ./repos/rmf-sim.repos rmf-sim.repos
+# Tolerate slow/flaky github clones (raise default ~130s timeout to 900s)
+RUN git config --global http.lowSpeedLimit 1000 \
+ && git config --global http.lowSpeedTime 900 \
+ && git config --global http.postBuffer 524288000
+RUN mkdir -p src && vcs import src < rmf-sim.repos
+
+RUN apt-get update && rosdep update && \
+    rosdep install --from-paths src --ignore-src --rosdistro ${ROS_DISTRO} -y \
+    --skip-keys "gz-ionic" \
+    --skip-keys "python3-paho-mqtt" \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN /bin/bash -c "source /opt/ros/${ROS_DISTRO}/setup.bash && \
+    colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release"
+
+ENV RMW_IMPLEMENTATION=rmw_zenoh_cpp
+ENTRYPOINT ["/ros_entrypoint.sh"]
+CMD ["bash"]
