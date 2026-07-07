@@ -58,7 +58,9 @@ jobs:
         with:
           context: .
           file: docker/Dockerfile.rmf-sim
-          build-args: ROS_DISTRO=${{ env.ROS_DISTRO }}
+          build-args: |
+            ROS_DISTRO=${{ env.ROS_DISTRO }}
+            RMF_IMAGE=ghcr.io/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:nightly_${{ steps.tags.outputs.short }}
           push: true
           provenance: false
           tags: |
@@ -74,7 +76,7 @@ jobs:
           file: docker/Dockerfile.rmf-api-server
           build-args: |
             ROS_DISTRO=${{ env.ROS_DISTRO }}
-            RMF_IMAGE=ghcr.io/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:nightly_${{ env.ROS_DISTRO }}
+            RMF_IMAGE=ghcr.io/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:nightly_${{ steps.tags.outputs.short }}
           push: true
           provenance: false
           tags: |
