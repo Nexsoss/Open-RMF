@@ -1,0 +1,90 @@
+name: integration-test
+
+on:
+  workflow_run:
+    workflows: ["nightly"]
+    types:
+      - completed
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  compose-up-test:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    timeout-minutes: 30
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_OWNER: nexsoss
+      IMAGE_NAME: open-rmf
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute short SHA from triggering nightly run
+        id: tags
+        run: |
+          SHORT_SHA=$(echo "${{ github.event.workflow_run.head_sha }}" | cut -c1-7)
+          echo "short=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure maps bind-mount directory exists
+        run: mkdir -p maps
+
+      - name: Pull nightly images built by the triggering run
+        run: |
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:nightly_${{ steps.tags.outputs.short }}_sim
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:nightly_${{ steps.tags.outputs.short }}_api-server
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:nightly_${{ steps.tags.outputs.short }}_web-dashboard
+
+      - name: Start stack (excluding rmf-base)
+        run: |
+          docker compose up -d --wait --wait-timeout 300 \
+            zenoh-router rmf-api-server rmf-web-dashboard rmf-sim
+
+      - name: Soak period to catch delayed crashes
+        run: sleep 60
+
+      - name: Verify no crashes or unhealthy containers
+        run: |
+          set -uo pipefail
+          FAILED=0
+          for c in $(docker compose ps -q); do
+            name=$(docker inspect --format '{{.Name}}' "$c" | sed 's/^\///')
+            state=$(docker inspect --format '{{.State.Status}}' "$c")
+            restarts=$(docker inspect --format '{{.RestartCount}}' "$c")
+            exitcode=$(docker inspect --format '{{.State.ExitCode}}' "$c")
+            health=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$c")
+            echo "service=$name state=$state restarts=$restarts exit=$exitcode health=$health"
+
+            if [ "$state" != "running" ]; then
+              echo "::error::$name is not running (state=$state, exitcode=$exitcode)"
+              FAILED=1
+            fi
+            if [ "$restarts" -gt 0 ]; then
+              echo "::error::$name restarted $restarts time(s) — possible crash loop"
+              FAILED=1
+            fi
+            if [ "$health" = "unhealthy" ]; then
+              echo "::error::$name healthcheck reports unhealthy"
+              FAILED=1
+            fi
+          done
+          exit $FAILED
+
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v --remove-orphans

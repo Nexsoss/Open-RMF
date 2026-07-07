@@ -4,17 +4,7 @@
 # Runs the full RMF backend stack HEADLESS: rmf-sim (fleet adapter + Gazebo
 # server + schedule visualizer), zenoh-router, api-server, and rmf-web.
 #
-# The base is built locally as `open-rmf:lyrical` and consumed by the
-# derived images via the `RMF_IMAGE` build-arg (default = local base tag).
-# GUI tools (RMF Site Editor, or Gazebo/RViz with a visible window for
-# debugging) are intentionally NOT defined here. They are launched manually
-# on the host via `rocker`, which handles X11/GPU wiring automatically.
 # See notes in README.md
-#
-# Use the Makefile (`make push`) for publishing images to
-# quay.io/nexsoss/open-rmf. It tags rmf-base from the local build and pushes
-# only the quay.io names, leaving local-only tags (open-rmf:lyrical,
-# open-rmf:lyrical_sim) untouched.
 # =============================================================================
 
 # build-only dependency
