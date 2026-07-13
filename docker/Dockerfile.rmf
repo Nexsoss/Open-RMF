@@ -1,6 +1,74 @@
-# Dockerfile.rmf — shared base for rmf-sim and rmf-api-server
 ARG ROS_DISTRO=lyrical
+
+# ============================================================================
+# builder
+# ============================================================================
+FROM ros:${ROS_DISTRO}-ros-base AS builder
+
+ARG ROS_DISTRO
+ENV ROS_DISTRO=${ROS_DISTRO}
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git cmake build-essential python3-pip python3-vcstool python3-rosdep \
+    curl wget lsb-release gnupg2 ca-certificates \
+    libclang-dev \
+    # Workaround for upstream rclrs issue (see ros2-rust/ros2_rust README)
+    ros-${ROS_DISTRO}-example-interfaces \
+    ros-${ROS_DISTRO}-test-msgs \
+    ros-${ROS_DISTRO}-rmw-zenoh-cpp \
+    ros-${ROS_DISTRO}-ament-cmake-vendor-package \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Rust toolchain 
+ENV HOME=/root
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
+ENV PATH=/root/.cargo/bin:$PATH
+ENV CARGO_HOME=/root/.cargo
+ENV RUSTUP_HOME=/root/.rustup
+
+RUN pip3 install --break-system-packages --no-cache-dir toml packaging paho-mqtt \
+    "git+https://github.com/colcon/colcon-cargo.git" \
+    "git+https://github.com/colcon/colcon-ros-cargo.git"
+
+RUN rosdep init || true
+
+WORKDIR /home/ws_rmf
+ENV HOME=/home/ws_rmf
+COPY ./repos/rmf.repos rmf.repos
+COPY ./repos/ros2_rust.repos ros2_rust.repos
+# Tolerate slow/flaky github clones (raise default ~130s timeout to 900s)
+RUN git config --global http.lowSpeedLimit 1000 \
+ && git config --global http.lowSpeedTime 900 \
+ && git config --global http.postBuffer 524288000
+RUN mkdir -p src && vcs import src < rmf.repos && vcs import src < ros2_rust.repos
+
+RUN apt-get update && rosdep update && \
+    rosdep install --from-paths src --ignore-src --rosdistro=${ROS_DISTRO} -y \
+    && rm -rf /var/lib/apt/lists/*
+
+
+# Lyrical is API-compatible with rolling, so we alias it to "rolling" at compile time.
+RUN /bin/bash -c "source /opt/ros/${ROS_DISTRO}/setup.bash && \
+    RUSTFLAGS='--cfg ros_distro=\"rolling\"' \
+    colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release"
+
+# Patch: auto-respawn schedule_visualizer_node to work around crash on startup.
+RUN VIZ_LAUNCH_FILE=$(find /home/ws_rmf/install -iname 'visualization.launch.xml' | head -n1) && \
+    if [ -z "$VIZ_LAUNCH_FILE" ]; then \
+        echo "ERROR: visualization.launch.xml not found, cannot apply respawn patch" && exit 1; \
+    fi && \
+    sed -i 's|<node pkg="rmf_visualization_schedule" exec="schedule_visualizer_node"|<node pkg="rmf_visualization_schedule" exec="schedule_visualizer_node" respawn="true" respawn_delay="2"|' "$VIZ_LAUNCH_FILE"
+
+# ============================================================================
+# slim base
+# ============================================================================
 FROM ros:${ROS_DISTRO}-ros-base
+
+ARG ROS_DISTRO
+ENV ROS_DISTRO=${ROS_DISTRO}
+ENV DEBIAN_FRONTEND=noninteractive
+ENV HOME=/home/ws_rmf
 
 LABEL org.opencontainers.image.title="open-rmf-base" \
       org.opencontainers.image.description="Shared base: ROS 2 + Open-RMF core packages compiled from rmf.repos" \
@@ -10,48 +78,37 @@ LABEL org.opencontainers.image.title="open-rmf-base" \
       org.opencontainers.image.licenses="Apache-2.0" \
       org.opencontainers.image.base.name="docker.io/library/ros:lyrical-ros-base" \
       org.opencontainers.image.attribution="Open-RMF core packages (Apache-2.0) Copyright Open Robotics"
-      
-ARG ROS_DISTRO
-ENV ROS_DISTRO=${ROS_DISTRO}
-ENV DEBIAN_FRONTEND=noninteractive
-ENV HOME=/home/ws_rmf
 
+# build / runtime deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git cmake build-essential python3-pip python3-vcstool python3-rosdep \
-    curl wget lsb-release gnupg2 \
+    curl wget lsb-release gnupg2 ca-certificates \
+    libclang-dev \
+    ros-${ROS_DISTRO}-example-interfaces \
+    ros-${ROS_DISTRO}-test-msgs \
     ros-${ROS_DISTRO}-rmw-zenoh-cpp \
     ros-${ROS_DISTRO}-ament-cmake-vendor-package \
     && rm -rf /var/lib/apt/lists/*
 
-RUN rosdep init || true
+# Rust toolchain
+ENV HOME=/root
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
+ENV PATH=/root/.cargo/bin:$PATH
+ENV CARGO_HOME=/root/.cargo
+ENV RUSTUP_HOME=/root/.rustup
+ENV HOME=/home/ws_rmf
 
-WORKDIR /home/ws_rmf
-COPY ./repos/rmf.repos rmf.repos
-# Tolerate slow/flaky github clones (raise default ~130s timeout to 900s)
-RUN git config --global http.lowSpeedLimit 1000 \
- && git config --global http.lowSpeedTime 900 \
- && git config --global http.postBuffer 524288000
-RUN mkdir -p src && vcs import src < rmf.repos
+RUN pip3 install --break-system-packages --no-cache-dir toml packaging paho-mqtt \
+    "git+https://github.com/colcon/colcon-cargo.git" \
+    "git+https://github.com/colcon/colcon-ros-cargo.git"
 
-RUN pip3 install --break-system-packages paho-mqtt
+# Pull the self-contained overlay from the builder.
+COPY --from=builder /home/ws_rmf/install /home/ws_rmf/install
 
-RUN apt-get update && rosdep update && \
-    rosdep install --from-paths src --ignore-src --rosdistro ${ROS_DISTRO} -y \
-    && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /home/ws_rmf/src /home/ws_rmf/src
 
-RUN /bin/bash -c "source /opt/ros/${ROS_DISTRO}/setup.bash && \
-    colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release" \
-    && sed -i "\$isource \"/home/ws_rmf/install/setup.bash\"" /ros_entrypoint.sh
-
-
-# Patch: auto-respawn schedule_visualizer_node to work around crash on startup.
-RUN VIZ_LAUNCH_FILE=$(find /home/ws_rmf/install -iname 'visualization.launch.xml' | head -n1) && \
-    if [ -z "$VIZ_LAUNCH_FILE" ]; then \
-        echo "ERROR: visualization.launch.xml not found, cannot apply respawn patch" && exit 1; \
-    fi && \
-    echo "Patching: $VIZ_LAUNCH_FILE" && \
-    sed -i 's|<node pkg="rmf_visualization_schedule" exec="schedule_visualizer_node"|<node pkg="rmf_visualization_schedule" exec="schedule_visualizer_node" respawn="true" respawn_delay="2"|' "$VIZ_LAUNCH_FILE" && \
-    grep -A2 'schedule_visualizer_node' "$VIZ_LAUNCH_FILE"
+RUN rosdep init || true \
+ && sed -i "\$isource \"/home/ws_rmf/install/setup.bash\"" /ros_entrypoint.sh
 
 ENV RMW_IMPLEMENTATION=rmw_zenoh_cpp
 ENTRYPOINT ["/ros_entrypoint.sh"]

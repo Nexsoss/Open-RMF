@@ -55,3 +55,7 @@ repositories:
     type: git
     url: https://github.com/open-rmf/pybind11_json_vendor
     version: cba8192
+  rmf/rmf_site_map_server:
+    type: git
+    url: https://github.com/open-rmf/rmf_site_map_server.git
+    version: main

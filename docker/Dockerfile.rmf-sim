@@ -30,10 +30,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /home/ws_rmf
 COPY ./repos/rmf-sim.repos rmf-sim.repos
-# Tolerate slow/flaky github clones (raise default ~130s timeout to 900s)
-RUN git config --global http.lowSpeedLimit 1000 \
- && git config --global http.lowSpeedTime 900 \
- && git config --global http.postBuffer 524288000
 RUN mkdir -p src && vcs import src < rmf-sim.repos
 
 RUN apt-get update && rosdep update && \
@@ -43,7 +39,9 @@ RUN apt-get update && rosdep update && \
     && rm -rf /var/lib/apt/lists/*
 
 RUN /bin/bash -c "source /opt/ros/${ROS_DISTRO}/setup.bash && \
-    colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release"
+    colcon build \
+        --packages-skip rclrs rosidl_runtime_rs rmf_site_map_server \
+        --cmake-args -DCMAKE_BUILD_TYPE=Release"
 
 ENV RMW_IMPLEMENTATION=rmw_zenoh_cpp
 ENTRYPOINT ["/ros_entrypoint.sh"]
