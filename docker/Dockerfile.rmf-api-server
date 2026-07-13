@@ -59,5 +59,4 @@ WORKDIR /opt/rmf/src/rmf-web/packages/api-server
 EXPOSE 8000
 ENTRYPOINT ["/bin/bash", "-c"]
 
-# Source the base's install space before /opt/ros so the source-built msgs win.
 CMD ["source /home/ws_rmf/install/setup.bash && source /opt/ros/${ROS_DISTRO}/setup.bash && python3 -m api_server"]
