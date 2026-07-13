@@ -18,7 +18,7 @@ services:
       dockerfile: docker/Dockerfile.rmf
       args:
         ROS_DISTRO: lyrical
-    image: quay.io/nexsoss/open-rmf:lyrical
+    image: localhost/open-rmf:lyrical
 
 # rmf with simulation
   rmf-sim:
@@ -27,8 +27,8 @@ services:
       dockerfile: docker/Dockerfile.rmf-sim
       args:
         ROS_DISTRO: lyrical
-        RMF_IMAGE: quay.io/nexsoss/open-rmf:lyrical
-    image: quay.io/nexsoss/open-rmf:lyrical_sim
+        RMF_IMAGE: localhost/open-rmf:lyrical
+    image: localhost/open-rmf:lyrical_sim
     container_name: rmf-sim
     environment:
       - RMW_IMPLEMENTATION=rmw_zenoh_cpp
@@ -65,8 +65,8 @@ services:
       dockerfile: docker/Dockerfile.rmf-api-server
       args:
         ROS_DISTRO: lyrical
-        RMF_IMAGE: quay.io/nexsoss/open-rmf:lyrical
-    image: quay.io/nexsoss/open-rmf:lyrical_api-server
+        RMF_IMAGE: localhost/open-rmf:lyrical
+    image: localhost/open-rmf:lyrical_api-server
     container_name: rmf-api-server
     environment:
       - RMW_IMPLEMENTATION=rmw_zenoh_cpp
@@ -86,7 +86,7 @@ services:
     build:
       context: ./docker
       dockerfile: Dockerfile.rmf-web-dashboard
-    image: quay.io/nexsoss/open-rmf:lyrical_web-dashboard
+    image: localhost/open-rmf:lyrical_web-dashboard
     container_name: rmf-web-dashboard
     depends_on:
       rmf-api-server:

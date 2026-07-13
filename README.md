@@ -67,24 +67,33 @@ git checkout lyrical   # or whichever ROS 2 distro branch you need
 The whole stack is one command. `docker compose build` (or `compose up --build`on first run) builds each image in dependency order. Because the derived images (`rmf`, `api-server`) depend on the base, build the base first or rely on Compose's dependency resolution:
 
 ```bash
-docker compose build rmf-base    # build the shared base explicitly (recommended)
-docker compose build             # then build the rest
+docker compose -f docker-compose.local.yaml build rmf-base    # build the shared base explicitly (recommended)
+docker compose -f docker-compose.local.yaml build             # then build the rest
 ```
 
 To build only a subset:
 
 ```bash
-docker compose build rmf-sim        # just the RMF sim / fleet adapter image
-docker compose build rmf-api-server # just the REST API image
-docker compose build rmf-web        # just the dashboard image
+docker compose -f docker-compose.local.yaml build rmf-sim        # just the RMF sim / fleet adapter image
+docker compose -f docker-compose.local.yaml build rmf-api-server # just the REST API image
+docker compose -f docker-compose.local.yaml build rmf-web        # just the dashboard image
 ```
 
 The `zenoh-router` service pulls a prebuilt image.
 
 ## Run
+Add an empty directory to your path, so as to be able to mount the maps:
+```bash
+mkdir -p maps
+```
 
 Bring the whole stack up in the background:
 
+```bash
+docker compose -f docker-compose.local.yaml up -d
+```
+
+OR, if you want to use pre-built images -
 ```bash
 docker compose up -d
 ```

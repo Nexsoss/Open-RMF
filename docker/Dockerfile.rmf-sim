@@ -9,7 +9,6 @@ LABEL org.opencontainers.image.title="open-rmf-sim" \
       org.opencontainers.image.source="https://github.com/nexsoss/Open-RMF" \
       org.opencontainers.image.documentation="https://github.com/nexsoss/Open-RMF" \
       org.opencontainers.image.licenses="Apache-2.0" \
-      org.opencontainers.image.base.name="docker.io/library/ros:lyrical-ros-base" \
       org.opencontainers.image.attribution="Open-RMF core packages (Apache-2.0) Copyright Open Robotics"
 
 ARG ROS_DISTRO
