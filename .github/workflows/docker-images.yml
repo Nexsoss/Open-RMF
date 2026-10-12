@@ -98,10 +98,27 @@ jobs:
           cache-from: type=gha,scope=rmf-web
           cache-to: type=gha,mode=max,scope=rmf-web
 
+      - name: Build and push sim-site
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile.rmf-sim-site
+          build-args: |
+            ROS_DISTRO=${{ env.ROS_DISTRO }}
+            SIM_IMAGE=ghcr.io/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:nightly_${{ steps.tags.outputs.short }}_sim
+          push: true
+          provenance: false
+          tags: |
+            ghcr.io/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:nightly_${{ env.ROS_DISTRO }}_sim-site
+            ghcr.io/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:nightly_${{ steps.tags.outputs.short }}_sim-site
+          cache-from: type=gha,scope=sim-site
+          cache-to: type=gha,mode=max,scope=sim-site
+
       - name: Build and push site-editor
         uses: docker/build-push-action@v6
         with:
-          context: ./docker
+          # Repository root: the Dockerfile copies docker/patches/.
+          context: .
           file: docker/Dockerfile.site-editor
           push: true
           provenance: false

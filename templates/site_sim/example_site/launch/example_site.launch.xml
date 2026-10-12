@@ -1,0 +1,36 @@
+<?xml version='1.0' ?>
+
+<launch>
+  <arg name="use_sim_time" default="true"/>
+  <arg name="headless" default="true"/>
+  <arg name="server_uri" default=""/>
+  <arg name="sim_update_rate" default="100"/>
+
+  <!-- RMF core: traffic schedule, task dispatcher, site map server, visualizer -->
+  <include file="$(find-pkg-share rmf_demos)/common.launch.xml">
+    <arg name="use_sim_time" value="$(var use_sim_time)"/>
+    <arg name="headless" value="$(var headless)"/>
+    <arg name="server_uri" value="$(var server_uri)"/>
+    <arg name="config_file" value="$(find-pkg-share example_site)/maps/example_site/example_site.site.json"/>
+    <arg name="use_site_map" value="true"/>
+    <arg name="use_reservation_node" value="true"/>
+  </include>
+
+  <!-- Gazebo, loading the world generated from the site file -->
+  <include file="$(find-pkg-share rmf_demos_gz)/simulation.launch.xml">
+    <arg name="map_package" value="example_site"/>
+    <arg name="map_name" value="example_site"/>
+    <arg name="headless" value="$(var headless)"/>
+    <arg name="sim_update_rate" value="$(var sim_update_rate)"/>
+  </include>
+
+  <!-- tinyRobot fleet adapter. Add a <group> per extra fleet. -->
+  <group>
+    <include file="$(find-pkg-share rmf_demos_fleet_adapter)/launch/fleet_adapter.launch.xml">
+      <arg name="use_sim_time" value="$(var use_sim_time)"/>
+      <arg name="server_uri" value="$(var server_uri)"/>
+      <arg name="nav_graph_file" value="$(find-pkg-share example_site)/maps/example_site/nav_graphs/tinyRobot.nav.yaml"/>
+      <arg name="config_file" value="$(find-pkg-share example_site)/config/example_site/tinyRobot_config.yaml"/>
+    </include>
+  </group>
+</launch>

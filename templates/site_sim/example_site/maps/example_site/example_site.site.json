@@ -1,0 +1,427 @@
+{
+  "format_version": "0.1",
+  "properties": {
+    "name": "example_site"
+  },
+  "levels": {
+    "1": {
+      "properties": {
+        "name": "L1",
+        "elevation": 0.0
+      },
+      "anchors": {
+        "8": {
+          "Translate2D": [
+            0.0,
+            0.0
+          ]
+        },
+        "10": {
+          "Translate2D": [
+            20.0,
+            0.0
+          ]
+        },
+        "11": {
+          "Translate2D": [
+            20.0,
+            12.0
+          ]
+        },
+        "12": {
+          "Translate2D": [
+            0.0,
+            12.0
+          ]
+        },
+        "17": {
+          "Translate2D": [
+            3.0,
+            3.0
+          ]
+        },
+        "18": {
+          "Translate2D": [
+            10.0,
+            3.0
+          ]
+        },
+        "19": {
+          "Translate2D": [
+            17.0,
+            3.0
+          ]
+        },
+        "20": {
+          "Translate2D": [
+            17.0,
+            9.0
+          ]
+        },
+        "21": {
+          "Translate2D": [
+            10.0,
+            9.0
+          ]
+        },
+        "22": {
+          "Translate2D": [
+            3.0,
+            9.0
+          ]
+        },
+        "23": {
+          "Translate2D": [
+            3.0,
+            1.5
+          ]
+        },
+        "24": {
+          "Translate2D": [
+            17.0,
+            1.5
+          ]
+        }
+      },
+      "drawings": {
+        "3": {
+          "properties": {
+            "name": "example_site",
+            "source": {
+              "Local": "example_site.png"
+            },
+            "pose": {
+              "trans": [
+                -1.0,
+                13.0,
+                0.0
+              ],
+              "rot": {
+                "yaw": {
+                  "deg": 0.0
+                }
+              }
+            },
+            "pixels_per_meter": 50.0
+          }
+        }
+      },
+      "floors": {
+        "9": {
+          "anchors": [
+            8,
+            10,
+            11,
+            12
+          ]
+        }
+      },
+      "walls": {
+        "13": {
+          "anchors": [
+            8,
+            10
+          ]
+        },
+        "14": {
+          "anchors": [
+            10,
+            11
+          ]
+        },
+        "15": {
+          "anchors": [
+            11,
+            12
+          ]
+        },
+        "16": {
+          "anchors": [
+            12,
+            8
+          ]
+        }
+      },
+      "rankings": {
+        "floors": [
+          9
+        ],
+        "drawings": [
+          3
+        ]
+      }
+    }
+  },
+  "navigation": {
+    "guided": {
+      "graphs": {
+        "25": {
+          "name": "tinyRobot",
+          "color": [
+            1.0,
+            0.50000024,
+            0.3
+          ]
+        }
+      },
+      "ranking": [
+        25
+      ],
+      "lanes": {
+        "26": {
+          "anchors": [
+            17,
+            18
+          ],
+          "graphs": "All"
+        },
+        "27": {
+          "anchors": [
+            18,
+            19
+          ],
+          "graphs": "All"
+        },
+        "28": {
+          "anchors": [
+            19,
+            20
+          ],
+          "graphs": "All"
+        },
+        "29": {
+          "anchors": [
+            20,
+            21
+          ],
+          "graphs": "All"
+        },
+        "30": {
+          "anchors": [
+            21,
+            22
+          ],
+          "graphs": "All"
+        },
+        "31": {
+          "anchors": [
+            22,
+            17
+          ],
+          "graphs": "All"
+        },
+        "32": {
+          "anchors": [
+            18,
+            21
+          ],
+          "graphs": "All"
+        },
+        "33": {
+          "anchors": [
+            17,
+            23
+          ],
+          "graphs": "All"
+        },
+        "34": {
+          "anchors": [
+            19,
+            24
+          ],
+          "graphs": "All"
+        }
+      },
+      "locations": {
+        "35": {
+          "anchor": 17,
+          "tags": [],
+          "name": "lobby",
+          "graphs": "All"
+        },
+        "36": {
+          "anchor": 18,
+          "tags": [],
+          "name": "pantry",
+          "graphs": "All"
+        },
+        "37": {
+          "anchor": 19,
+          "tags": [],
+          "name": "store",
+          "graphs": "All"
+        },
+        "38": {
+          "anchor": 20,
+          "tags": [],
+          "name": "office_a",
+          "graphs": "All"
+        },
+        "39": {
+          "anchor": 21,
+          "tags": [],
+          "name": "office_b",
+          "graphs": "All"
+        },
+        "40": {
+          "anchor": 22,
+          "tags": [],
+          "name": "meeting",
+          "graphs": "All"
+        },
+        "41": {
+          "anchor": 23,
+          "tags": [
+            "Charger",
+            "ParkingSpot",
+            "HoldingPoint"
+          ],
+          "name": "tinyRobot1_charger",
+          "graphs": "All"
+        },
+        "42": {
+          "anchor": 24,
+          "tags": [
+            "Charger",
+            "ParkingSpot",
+            "HoldingPoint"
+          ],
+          "name": "tinyRobot2_charger",
+          "graphs": "All"
+        }
+      }
+    }
+  },
+  "scenarios": {
+    "5": {
+      "instances": {
+        "43": {
+          "pose": {
+            "trans": [
+              3.0,
+              1.5,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 90.0
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        },
+        "44": {
+          "pose": {
+            "trans": [
+              17.0,
+              1.5,
+              0.0
+            ],
+            "rot": {
+              "yaw": {
+                "deg": 90.0
+              }
+            }
+          },
+          "inclusion": "Included",
+          "on_level": 1
+        }
+      },
+      "name": "Default Scenario",
+      "parent_scenario": null
+    }
+  },
+  "model_descriptions": {
+    "46": {
+      "name": "TinyRobot",
+      "source": {
+        "Search": "Open-RMF/TinyRobot"
+      }
+    }
+  },
+  "robots": {
+    "46": {
+      "properties": {
+        "Collision": {
+          "config": {
+            "offset": [
+              0.0,
+              0.0
+            ],
+            "radius": 0.30000001192092896
+          },
+          "kind": "Circle Collision"
+        },
+        "Mobility": {
+          "config": {
+            "bidirectional": true,
+            "rotation_center_offset": [
+              0.0,
+              0.0
+            ],
+            "rotational_speed": 1.0,
+            "translational_speed": 0.5
+          },
+          "kind": "Differential Drive"
+        },
+        "Power Dissipation": {
+          "config": {
+            "Ambient System": {
+              "idle_power": 20.0
+            },
+            "Mechanical System": {
+              "friction_coefficient": 0.2199999988079071,
+              "mass": 20.0,
+              "moment_of_inertia": 10.0
+            }
+          }
+        },
+        "Power Source": {
+          "config": {
+            "capacity": 24.0,
+            "charging_current": 5.0,
+            "voltage": 12.0
+          },
+          "kind": "Battery"
+        }
+      }
+    }
+  },
+  "model_instances": {
+    "43": {
+      "parent": 1,
+      "name": "tinyRobot1",
+      "pose": {
+        "trans": [
+          3.0,
+          1.5,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 90.0
+          }
+        }
+      },
+      "description": 46
+    },
+    "44": {
+      "parent": 1,
+      "name": "tinyRobot2",
+      "pose": {
+        "trans": [
+          17.0,
+          1.5,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 90.0
+          }
+        }
+      },
+      "description": 46
+    }
+  }
+}

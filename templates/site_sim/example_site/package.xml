@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>example_site</name>
+  <version>0.1.0</version>
+  <description>Example RMF site authored in the RMF Site Editor, simulated with a tinyRobot fleet.</description>
+  <maintainer email="opensource@nexsoss.ai">Nexsoss</maintainer>
+  <license>Apache License 2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>rmf_site_cmake</buildtool_depend>
+
+  <exec_depend>rmf_demos</exec_depend>
+  <exec_depend>rmf_demos_assets</exec_depend>
+  <exec_depend>rmf_demos_gz</exec_depend>
+  <exec_depend>rmf_demos_fleet_adapter</exec_depend>
+  <exec_depend>rmf_site_map_server</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

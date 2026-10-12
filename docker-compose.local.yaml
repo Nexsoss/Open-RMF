@@ -33,27 +33,35 @@ services:
     environment:
       - RMW_IMPLEMENTATION=rmw_zenoh_cpp
     network_mode: host
-    volumes:
-      - shared_data:/home/ws_rmf/install/rmf_demos_maps/share/rmf_demos_maps/maps
     command: >
       bash -c "source /home/ws_rmf/install/setup.bash &&
-      ros2 launch rmf_demos_gz ${WORLD:-office}.launch.xml headless:=1
-      server_uri:=ws://localhost:8000/_internal"
+      ros2 launch ${SITE_PACKAGE:-example_site} ${SITE_PACKAGE:-example_site}.launch.xml
+      headless:=true server_uri:=ws://localhost:8000/_internal"
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'ros2 launch' > /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
     depends_on:
       rmf-api-server:
-        condition: service_started
+        # Wait for the API server to actually be serving, not just started,
+        # so its (CPU-heavy) startup isn't competing with Gazebo spin-up.
+        condition: service_healthy
       zenoh-router:
         condition: service_healthy
 
-# zenoh router
+  # rmw_zenoh's own router, from the same image and zenoh revision as the
+  # RMF nodes, so client and router can never drift apart.
   zenoh-router:
-    image: eclipse/zenoh:1.9.0-47-g55263c9da
+    image: localhost/open-rmf:lyrical
     container_name: zenoh-router
     network_mode: host
+    command: ["ros2", "run", "rmw_zenoh_cpp", "rmw_zenohd"]
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "7447"]
+      test: ["CMD", "bash", "-c", "</dev/tcp/localhost/7447"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -78,7 +86,10 @@ services:
       test: ["CMD", "nc", "-z", "localhost", "8000"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      # rmf-api-server's startup (rclpy/zenoh session + DB schema + uvicorn
+      # bind) competes for CPU with rmf-sim's Gazebo process on constrained
+      # hosts; 50s (the old 5 retries) was not enough headroom. 120s.
+      retries: 12
     restart: unless-stopped
 
 # rmf web dashboard
@@ -96,11 +107,3 @@ services:
     ports:
       - "3000:80"
     restart: unless-stopped
-
-volumes:
-  shared_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${PWD}/maps

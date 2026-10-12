@@ -6,8 +6,10 @@ ENV HUSKY=0
 RUN corepack enable && corepack prepare pnpm@9 --activate
 
 WORKDIR /opt/rmf/src/rmf-web
-RUN git clone --single-branch --branch main --depth 1 \
-    https://github.com/open-rmf/rmf-web.git .
+# rmf-web `lyrical` branch head.
+ARG RMF_WEB_REF=de892c7
+RUN git clone https://github.com/open-rmf/rmf-web.git . \
+ && git checkout --quiet ${RMF_WEB_REF}
 
 RUN node -e " \
     const fs = require('fs'); \
@@ -30,6 +32,13 @@ RUN echo "=== verify react-router ===" && find node_modules/.pnpm -maxdepth 1 -i
 RUN echo "=== verify react ===" && find node_modules/.pnpm -maxdepth 1 -iname "react@*" 2>&1 || true
 
 WORKDIR /opt/rmf/src/rmf-web/packages/rmf-dashboard-framework
+
+# The demo's initial map zoom (roughly pixels per metre) suits large worlds;
+# 40 fits the default example site, about 20 m x 12 m.
+ARG DASHBOARD_DEFAULT_ZOOM=40
+RUN sed -i -E "s/^(  defaultZoom: )[0-9]+,$/\1${DASHBOARD_DEFAULT_ZOOM},/" examples/demo/main.tsx \
+ && grep -qE "^  defaultZoom: ${DASHBOARD_DEFAULT_ZOOM},$" examples/demo/main.tsx
+
 RUN pnpm run --filter '{.}^...' build
 RUN pnpm exec vite -c examples/shared/vite.config.ts build examples/demo --sourcemap
 

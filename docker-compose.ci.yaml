@@ -8,13 +8,16 @@
 # =============================================================================
 
 services:
+  # rmw_zenoh's own router, from the same image and zenoh revision as the
+  # RMF nodes, so client and router can never drift apart.
   zenoh-router:
-    image: eclipse/zenoh:1.9.0-47-g55263c9da
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_OWNER:-nexsoss}/${IMAGE_NAME:-open-rmf}:nightly_${TAG:-lyrical}
     container_name: zenoh-router
     network_mode: host
+    command: ["ros2", "run", "rmw_zenoh_cpp", "rmw_zenohd"]
     restart: "no"
     healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "7447"]
+      test: ["CMD", "bash", "-c", "</dev/tcp/localhost/7447"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -32,7 +35,10 @@ services:
       test: ["CMD", "nc", "-z", "localhost", "8000"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      # rmf-api-server's startup (rclpy/zenoh session + DB schema + uvicorn
+      # bind) competes for CPU with rmf-sim's Gazebo process on shared CI
+      # runners; 50s (the old 5 retries) was not enough headroom. 120s.
+      retries: 12
     restart: "no"
 
   rmf-web-dashboard:
@@ -55,11 +61,19 @@ services:
     network_mode: host
     command: >
       bash -c "source /home/ws_rmf/install/setup.bash &&
-      ros2 launch rmf_demos_gz ${WORLD:-office}.launch.xml headless:=1
-      server_uri:=ws://localhost:8000/_internal"
+      ros2 launch ${SITE_PACKAGE:-example_site} ${SITE_PACKAGE:-example_site}.launch.xml
+      headless:=true server_uri:=ws://localhost:8000/_internal"
     restart: "no"
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'ros2 launch' > /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
     depends_on:
       rmf-api-server:
-        condition: service_started
+        # Wait for the API server to actually be serving, not just started,
+        # so its (CPU-heavy) startup isn't competing with Gazebo spin-up.
+        condition: service_healthy
       zenoh-router:
         condition: service_healthy

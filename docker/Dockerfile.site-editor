@@ -2,7 +2,7 @@
 # Dockerfile.site-editor
 # RMF Site Editor (native desktop, Rust/Bevy) for authoring traffic maps.
 #
-# See rocker usage notes in README.md for the exact launch command.
+# Run it with distrobox: see "Running GUI tools via distrobox" in README.md.
 #
 # Ref: https://github.com/open-rmf/rmf_site
 # =============================================================================
@@ -33,8 +33,19 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
 
 WORKDIR /opt/rmf_site
 
-RUN git clone https://github.com/open-rmf/rmf_site.git . && \
-    cargo build --release
+# rmf_site_editor 0.0.3, the current crates.io release: the commit it was
+# published from. Upstream it is only on a pull-request ref, so it is
+# fetched by full SHA. Kept in lockstep with Dockerfile.rmf-sim and
+# Dockerfile.rmf-sim-site. See docker/patches/README.md.
+ARG RMF_SITE_REF=53504e0e067377904df250056eaf6595ca662e8e
+
+COPY docker/patches/rmf_site_exporter_fixes.patch /tmp/
+
+RUN git init --quiet . \
+ && git fetch --quiet --depth 1 https://github.com/open-rmf/rmf_site.git ${RMF_SITE_REF} \
+ && git checkout --quiet FETCH_HEAD \
+ && git apply --verbose /tmp/rmf_site_exporter_fixes.patch \
+ && cargo build --release --locked
 
 # -----------------------------------------------------------------------
 # Runtime image

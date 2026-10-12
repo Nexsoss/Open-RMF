@@ -28,16 +28,25 @@ are noted below.
       - open-rmf/menge_vendor
       - open-rmf/nlohmann_json_schema_validator_vendor
       - open-rmf/pybind11_json_vendor
+      - open-rmf/rmf_site_map_server
 
   • Open-RMF simulation & demos — Copyright Open Robotics
     Source repositories (pinned commits listed in repos/rmf-sim.repos):
       - open-rmf/rmf_demos
       - open-rmf/rmf_simulation
-      - open-rmf/rmf_traffic_editor
+      - open-rmf/rmf_site_ros2
+
+  • RMF Site Editor — Copyright Open Robotics
+    https://github.com/open-rmf/rmf_site
+    Pinned commit set by RMF_SITE_REF in docker/Dockerfile.site-editor.
+
+  • ros2_rust (rclrs, rosidl_runtime_rs, rosidl_rust)
+    https://github.com/ros2-rust
+    Pinned commits listed in repos/ros2_rust.repos.
 
   • rmf-web (REST API + dashboard framework) — Copyright Open Robotics
     https://github.com/open-rmf/rmf-web
-    https://github.com/open-rmf/rmf-dashboard-framework
+    Pinned commit set by RMF_WEB_REF in the rmf-web Dockerfiles.
 
   • ROS 2 — Copyright Open Source Robotics Foundation / Open Robotics
     https://www.ros.org/
@@ -47,6 +56,9 @@ Modifications by Nexsoss:
     respawn="true" respawn_delay="2" on rmf_visualization_schedule's
     schedule_visualizer_node (workaround for upstream issues
     open-rmf/rmf#546 and open-rmf/rmf#637).
+  • docker/patches/rmf_site_exporter_fixes.patch, applied to the RMF Site
+    Editor: fixes to its SDF / nav-graph export, described in
+    docker/patches/README.md.
   • Container layer / Dockerfiles / docker-compose manifests in this
     repository. These additions are Copyright 2026 Nexsoss and licensed
     under Apache-2.0.
@@ -56,15 +68,16 @@ Eclipse Public License 2.0 (EPL-2.0) / Dual-licensed (EPL-2.0 OR Apache-2.0)
 --------------------------------------------------------------------------------
   • Eclipse Zenoh — Copyright Eclipse Foundation, Inc. and contributors
     https://github.com/eclipse-zenoh/zenoh
-    Used unmodified as the zenoh-router service in docker-compose.yaml.
+    Used unmodified, as vendored by the ROS 2 rmw_zenoh package (whose
+    rmw_zenohd router is the zenoh-router service in docker-compose.yaml).
 
 --------------------------------------------------------------------------------
-3-Clause BSD License
+GNU General Public License v3.0
 --------------------------------------------------------------------------------
-  • rocker — Copyright Open Source Robotics Foundation
-    https://github.com/osrf/rocker
-    Invoked from the host only; not bundled into any image produced by
-    this repository.
+  • distrobox — Copyright its contributors
+    https://github.com/89luca89/distrobox
+    Invoked from the host only, to run the GUI tools; not bundled into any
+    image produced by this repository.
 
 ================================================================================
 Trademarks

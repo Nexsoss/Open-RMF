@@ -6,7 +6,11 @@ Pre-built, ready-to-run Docker images for the [Open-RMF](https://www.openrmf.org
 ecosystem: the ROS 2 simulation/fleet adapter stack, the REST API server, the web
 dashboard, and the RMF Site Editor.
 
-Pick the branch that matches your ROS 2 distribution (e.g. branch `lyrical` for > ROS 2 `lyrical`). Each branch pins the matching `ROS_DISTRO` build-arg in the Dockerfiles.
+Pick the branch that matches your ROS 2 distribution (e.g. branch `lyrical` for ROS 2 `lyrical`). Each branch pins the matching `ROS_DISTRO` build-arg in the Dockerfiles.
+
+Tested images are published to `quay.io/nexsoss/open-rmf:<tag>`; nightly builds of the branch go to `ghcr.io/nexsoss/open-rmf:nightly_<tag>`.
+
+**Want your own map?** Follow the [step-by-step tutorial](templates/site_sim/TUTORIAL.md): take a floorplan PNG, draw walls, lanes and waypoints in the RMF Site Editor, add tinyRobots, and run it all in simulation. The [site template](templates/site_sim/README.md) has the package it builds on.
 
 ---
 
@@ -18,28 +22,32 @@ Pick the branch that matches your ROS 2 distribution (e.g. branch `lyrical` for 
 - [Accessing the services](#accessing-the-services)
 - [Stop / tear down](#stop--tear-down)
 - [Updating / rebuilding a single service](#updating--rebuilding-a-single-service)
-- [Running GUI tools via `rocker`](#running-gui-tools-via-rocker)
-  - [RMF Site Editor](#rmf-site-editor)
-  - [Debugging Gazebo / RViz](#debugging-gazebo--rviz)
+- [RMF Site Editor](#rmf-site-editor)
+  - [Option 1: install from crates.io (no container)](#option-1-install-from-cratesio-no-container)
+  - [Option 2: run the image with distrobox](#option-2-run-the-image-with-distrobox)
+- [Running GUI tools via `distrobox`](#running-gui-tools-via-distrobox)
+  - [RMF, Gazebo and RViz, one terminal each](#rmf-gazebo-and-rviz-one-terminal-each)
+- [Your own site: the template](templates/site_sim/README.md)
 - [Notes & troubleshooting](#notes--troubleshooting)
 
 ---
 
 Images are layered. `Dockerfile.rmf` is a **shared base** that compiles the core RMF packages from `repos/rmf.repos`. `Dockerfile.rmf-sim` and `Dockerfile.rmf-api-server` both derive from that base — they add only the apt/pip packages and build steps specific to their role. GUI/Qt/GL/X11/Gazebo packages and `flask-socketio` live in `rmf-sim` only; the api-server image is slimmer and has no GUI dependencies.
 
-Four services come up under `docker-compose`. The first three are backend, the fourth is the web UI. All run **headless**; GUIs are launched separately on the host via `rocker` (see below).
+Four services come up under `docker compose`: `zenoh-router`, `rmf-api-server` and `rmf-sim` are the backend, `rmf-web-dashboard` is the web UI. All run **headless**. GUIs run separately: the Site Editor natively or via `distrobox`, Gazebo and RViz via `distrobox` (see below).
 
 | Service          | Image built from                | Role                                                                                |
 |------------------|---------------------------------|-------------------------------------------------------------------------------------|
 | `rmf-base`       | `docker/Dockerfile.rmf`         | Shared base: ROS 2 + RMF core packages from `rmf.repos`. Build-only; never runs.     |
-| `rmf-sim`        | `docker/Dockerfile.rmf-sim`     | Base + Gazebo + Qt/GL/X11 + `rmf_demos`/`rmf_simulation` from `rmf-sim.repos`        |
-| `zenoh-router`   | `eclipse/zenoh:...`             | Zenoh router run from upstream zenoh image |
-| `api-server`     | `docker/Dockerfile.rmf-api-server` | `rmf-web`API server       |
-| `rmf-web`        | `docker/Dockerfile.rmf-web-dashboard` | Static build of the `rmf-dashboard-framework` demo dashboard           |
-| `rmf-site-editor`(GUI) | `docker/Dockerfile.site-editor` | RMF Site Editor desktop; build-only, launched via `rocker` |
+| `rmf-sim`        | `docker/Dockerfile.rmf-sim`     | Base + Gazebo + `rmf_demos`/`rmf_simulation` from `rmf-sim.repos`; runs the [example site](templates/site_sim/README.md) with two tinyRobots |
+| `rmf-sim-site`   | `docker/Dockerfile.rmf-sim-site` | `rmf-sim` + RMF Site Editor + `rmf_site_ros2`, for building sites from `.site.json`. Build-only (`--profile build`). |
+| `zenoh-router`   | `docker/Dockerfile.rmf` (base)  | `rmw_zenohd`, the router shipped with `rmw_zenoh` (same zenoh revision as the RMF nodes) |
+| `rmf-api-server` | `docker/Dockerfile.rmf-api-server` | `rmf-web` API server       |
+| `rmf-web-dashboard` | `docker/Dockerfile.rmf-web-dashboard` | Static build of the `rmf-dashboard-framework` demo dashboard           |
+| (GUI) site editor | `docker/Dockerfile.site-editor` | RMF Site Editor desktop; not a compose service. Install it from crates.io or run this image via `distrobox` ([RMF Site Editor](#rmf-site-editor)) |
 
 
-A shared `./maps` directory is mounted into `rmf` so that maps authored in the Site Editor (also written into `./maps`) are visible to the simulator without any manual copying.
+Simulated worlds are generated from [RMF Site Editor](https://github.com/open-rmf/rmf_site) `.site.json` files when the image is built; traffic-editor `.building.yaml` maps (and the `rmf_demos` worlds made from them) are not used. The default world is the [site template](templates/site_sim/README.md)'s `example_site`; set `SITE_PACKAGE` to run another site package baked into the image.
 
 ---
 
@@ -49,7 +57,8 @@ On the host machine:
 
 - **Docker**, Compose plugin (`docker compose ...`)
 - ~15 GB of free disk space 
-- For GUI tools (`rocker` flow), also see the [Running GUI tools via rocker](#running-gui-tools-via-rocker) section.
+- For the Site Editor: either Rust (to install it from crates.io) or distrobox, see [RMF Site Editor](#rmf-site-editor).
+- For watching Gazebo and RViz: [distrobox](https://distrobox.it/), see [Running GUI tools via distrobox](#running-gui-tools-via-distrobox).
 - For NVIDIA GPU acceleration inside the containers, install the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) on the host. 
 
 Clone the repo and switch to the branch matching your ROS distro:
@@ -76,16 +85,12 @@ To build only a subset:
 ```bash
 docker compose -f docker-compose.local.yaml build rmf-sim        # just the RMF sim / fleet adapter image
 docker compose -f docker-compose.local.yaml build rmf-api-server # just the REST API image
-docker compose -f docker-compose.local.yaml build rmf-web        # just the dashboard image
+docker compose -f docker-compose.local.yaml build rmf-web-dashboard  # just the dashboard image
 ```
 
-The `zenoh-router` service pulls a prebuilt image.
+The `zenoh-router` service runs from the base image (`rmf-base`), so build that first.
 
 ## Run
-Add an empty directory to your path, so as to be able to mount the maps:
-```bash
-mkdir -p maps
-```
 
 Bring the whole stack up in the background:
 
@@ -98,7 +103,7 @@ OR, if you want to use pre-built images -
 docker compose up -d
 ```
 
-This starts `rmf` → `zenoh-router` → `api-server` → `rmf-web` in the correct order.
+This starts `zenoh-router` → `rmf-api-server` → `rmf-sim` and `rmf-web-dashboard`, each waiting for its dependencies to be healthy.
 
 To watch logs:
 
@@ -112,9 +117,9 @@ docker compose logs -f rmf-sim       # just the RMF sim
 
 | Service          | URL (from the host)                                | Notes                                              |
 |------------------|----------------------------------------------------|----------------------------------------------------|
-| `rmf-web`        | http://localhost:3000                              | Open-RMF web dashboard                             |
-| `rmf-api-server` | http://localhost:8000                              | REST API (FastAPI / uvicorn)                       |
-| `rmf-api-server` | ws://localhost:8080                                | WebSocket for live RMF state                       |
+| `rmf-web-dashboard` | http://localhost:3000                           | Open-RMF web dashboard                             |
+| `rmf-api-server` | http://localhost:8000                              | REST API and socket.io live updates (docs at `/docs`) |
+| `rmf-api-server` | ws://localhost:8000/_internal                      | Fleet adapters / RMF nodes report state here       |
 | `zenoh-router`   | (internal only — no published port)                | Zenoh router                                       |
 
 ---
@@ -127,83 +132,180 @@ docker compose down            # stop and remove containers + the network
 
 ---
 
-## Running GUI tools via `rocker`
+## RMF Site Editor
 
-GUI applications (RMF Site Editor, and Gazebo/RViz when visually debugging the simulation) are **not** part of `docker-compose`. They run on the host via
-[`rocker`](https://github.com/osrf/rocker), which injects X11 / GPU configuration at container launch time. Compose stays clean and headless.
+The [RMF Site Editor](https://github.com/open-rmf/rmf_site) is the desktop
+app for drawing sites (`.site.json`): floorplan, walls, lanes, waypoints and
+robots. This repository uses **version 0.0.3**, the current crates.io
+release, and the images build that same version. To turn a site into a
+simulated world with robots, follow the
+[tutorial](templates/site_sim/TUTORIAL.md).
 
-### 1. Install rocker (on the host, not inside any container)
+Keep your sites anywhere in your home directory, e.g. this repository's
+`maps/` (gitignored).
 
-```bash
-sudo apt-get install python3-rocker
-# or
-pip install rocker
-```
+### Option 1: install from crates.io (no container)
 
-### 2. RMF Site Editor
-
-The site-editor image is published as `quay.io/nexsoss/open-rmf:rmf-site-editor`. You can either pull the published image (recommended — no Rust toolchain needed) or build it locally.
-
-**Pull from quay.io and launch:**
-
-```bash
-docker pull quay.io/nexsoss/open-rmf:rmf-site-editor
-
-# Without an NVIDIA GPU:
-rocker --x11 --user --volume ./maps:/root/site_maps \
-    -- quay.io/nexsoss/open-rmf:rmf-site-editor
-
-# With an NVIDIA GPU:
-rocker --nvidia --x11 --user --volume ./maps:/root/site_maps \
-    -- quay.io/nexsoss/open-rmf:rmf-site-editor
-```
-
-**Or build locally** 
+On Ubuntu, install the build dependencies and Rust (via
+[rustup](https://rustup.rs); the distro's `rustc` may be too old), then the
+editor:
 
 ```bash
-docker build -f docker/Dockerfile.site-editor \
-    -t quay.io/nexsoss/open-rmf:rmf-site-editor .
-
-# Then launch with rocker using the same image reference as above:
-rocker --x11 --user --volume ./maps:/root/site_maps \
-    -- quay.io/nexsoss/open-rmf:rmf-site-editor
+sudo apt install build-essential pkg-config curl libgtk-3-dev libasound2-dev libudev-dev
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh   # accept the defaults
+. "$HOME/.cargo/env"                                              # or open a new terminal
+cargo install rmf_site_editor --version 0.0.3 --locked
 ```
 
-Exported map files (`.building.yaml` / SDF) land in `./maps` on the host.
-
-### 3. Debugging Gazebo / RViz
-
-`rmf` runs headless by default under compose. To visually debug Gazebo or RViz, launch the same image manually via rocker instead of changing anything in `docker-compose.yaml`. 
+The build takes 5–15 minutes. It installs `~/.cargo/bin/rmf_site_editor`,
+which you run with:
 
 ```bash
-docker pull quay.io/nexsoss/open-rmf:lyrical_rmf-sim
-
-rocker --nvidia --x11 --user \
-    --volume ./maps:/home/ws_rmf/install/rmf_demos_maps/share/rmf_demos_maps/maps \
-    -- quay.io/nexsoss/open-rmf:lyrical_rmf-sim \
-    bash -c "source /opt/ros/lyrical/setup.bash && \
-             source /home/ws_rmf/install/setup.bash && \
-             ros2 launch rmf_demos_gz office.launch.xml headless:=0"
+rmf_site_editor                      # welcome screen: create or open a site
+rmf_site_editor path/to/my_site.site.json
 ```
 
-### rocker flag reference
+- Keep `--version 0.0.3 --locked`: they give exactly the version the
+  tutorial and images use, with the dependency versions it was released
+  with.
+- The editor needs a working Vulkan or OpenGL driver; a normal desktop
+  install has one. On other systems, see the
+  [rmf_site README](https://github.com/open-rmf/rmf_site).
 
-| Flag        | Purpose                                                          |
-|-------------|------------------------------------------------------------------|
-| `--x11`     | Forwards the host X server into the container automatically      |
-| `--nvidia`  | Injects NVIDIA driver libraries and GLX support for GPU rendering|
-| `--user`    | Runs the container as your host UID/GID (avoids root-owned files)|
-| `--volume`  | Mounts a host directory into the container                       |
+### Option 2: run the image with distrobox
+
+No Rust toolchain needed. Install distrobox first (see
+[Running GUI tools via distrobox](#running-gui-tools-via-distrobox)), then:
+
+```bash
+distrobox create --name rmf-site-editor --image quay.io/nexsoss/open-rmf:rmf-site-editor   # once
+distrobox enter rmf-site-editor -- /usr/local/bin/rmf_site_editor
+```
+
+- The box shares your home directory, so the editor's dialogs show your
+  own files.
+- Use the **full path** `/usr/local/bin/rmf_site_editor`. If you also did
+  option 1, a plain `rmf_site_editor` would run the `~/.cargo/bin` copy.
+- To use an image built from this repository instead, build it with
+  `docker build -f docker/Dockerfile.site-editor -t localhost/open-rmf:rmf-site-editor .`
+  and pass `--image localhost/open-rmf:rmf-site-editor`.
+
+The image also carries a few exporter fixes for world generation (see
+[docker/patches/](docker/patches/README.md)). They only affect the headless
+export the image builds run, so sites drawn with either option are the same.
+
+---
+
+## Running GUI tools via `distrobox`
+
+GUI applications (Gazebo and RViz when you want to watch the simulation, and
+optionally the RMF Site Editor) are not compose services; compose stays
+headless. Run them with [distrobox](https://distrobox.it/), a long-lived
+container that is integrated with your desktop:
+
+- it runs as **you**, so files it creates are owned by you;
+- it shares your **home directory**, display (X11 or Wayland), GPU, network
+  and process table, so no volume, display or network flags are needed;
+- the image's own files (`/home/ws_rmf`, `/opt/ros`, `/usr/local/bin`) are
+  still the container's.
+
+You create a box once, then open as many terminals in it as you like.
+
+**Install** distrobox (it works with docker or podman):
+https://distrobox.it/#installation. With an NVIDIA GPU, add `--nvidia` to the
+`distrobox create` commands below (it needs the
+[NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)).
+The first `distrobox enter` of a new box takes a minute or so while distrobox
+sets up your user inside it.
+
+The Site Editor in a distrobox is option 2 under
+[RMF Site Editor](#rmf-site-editor).
+
+### RMF, Gazebo and RViz, one terminal each
+
+Run the API server and dashboard with compose, and RMF and the simulation in
+a distrobox made from the sim image. Everything uses the host network, so
+they find each other on `localhost`. **Don't** also start the compose
+`rmf-sim` service, or you get two copies of every robot.
+
+```bash
+# once
+distrobox create --name rmf-sim --image quay.io/nexsoss/open-rmf:lyrical_sim
+```
+
+**Terminal 1 (host):** zenoh router, API server and dashboard.
+
+```bash
+docker compose up -d zenoh-router rmf-api-server rmf-web-dashboard
+```
+
+**Terminal 2:** RMF core, the Gazebo server and the tinyRobot fleet adapter.
+Start it from a scratch directory: the traffic schedule writes a
+`.rmf_schedule_node.yaml` file into the current directory.
+
+```bash
+distrobox enter rmf-sim
+mkdir -p ~/rmf_run && cd ~/rmf_run
+source /home/ws_rmf/install/setup.bash
+ros2 launch example_site example_site.launch.xml headless:=true \
+    server_uri:=ws://localhost:8000/_internal
+```
+
+**Terminal 3:** the Gazebo window. It attaches to the running server.
+
+```bash
+distrobox enter rmf-sim
+source /home/ws_rmf/install/setup.bash
+gz sim -g
+```
+
+**Terminal 4:** RViz, showing the RMF schedule, nav graph and robots.
+
+```bash
+distrobox enter rmf-sim
+source /home/ws_rmf/install/setup.bash
+rviz2 -d $(ros2 pkg prefix rmf_visualization_schedule)/share/rmf_visualization_schedule/config/rmf.rviz \
+    --ros-args -p use_sim_time:=true
+```
+
+**Terminal 5:** send tasks (or use the dashboard at http://localhost:3000).
+
+```bash
+distrobox enter rmf-sim
+source /home/ws_rmf/install/setup.bash
+ros2 run rmf_demos_tasks dispatch_patrol -p office_a meeting -n 1 --use_sim_time
+```
+
+To get the Gazebo window and RViz from terminal 2 alone, launch with
+`headless:=false` instead.
+
+**Your own site:** build its image with the
+[site template](templates/site_sim/README.md), make a distrobox from that
+image (e.g. `distrobox create --name my-site --image localhost/open-rmf:lyrical_my_site`),
+and launch `my_site my_site.launch.xml` in terminal 2.
+
+**Good to know:**
+
+- Stop with Ctrl-C in each terminal, then `docker compose down`.
+- The sim image sets `RMW_IMPLEMENTATION=rmw_zenoh_cpp`, and that carries
+  into the distrobox. Your `~/.bashrc` also runs inside it, so if it sources
+  a host ROS install, enter with `distrobox enter rmf-sim -- bash --norc`
+  instead.
+- Gazebo writes to `~/.gz`. If an earlier container run created that
+  directory as root, Gazebo logs `Permission denied` there; fix it with
+  `sudo chown -R $USER: ~/.gz`.
+- Closing the Gazebo window can print `terminate called ... RCLError ...
+  context is not valid`. It comes from an RMF GUI plugin during shutdown and
+  is harmless.
+- After pulling a newer image, recreate the box:
+  `distrobox rm rmf-sim`, then `distrobox create` as above.
 
 ---
 
 ## Notes & troubleshooting
 
-- **rocker builds a temporary derived image** on top of the one you pass in;
-  your original image (e.g. `rmf-site-editor:lyrical`) is never modified.
 - `docker-compose.yaml` has **no** `site-editor` service and **no** X11 wiring
-  on `rmf` — both are launched manually via rocker only when a GUI is actually
-  needed.
+  on `rmf-sim`. GUIs run via distrobox only when actually needed.
 - **`rmf` image patches** `rmf_visualization_schedule`'s
   `visualization.launch.xml` to set `respawn="true" respawn_delay="2"` on the
   `schedule_visualizer_node`. This is a workaround for upstream segfaults

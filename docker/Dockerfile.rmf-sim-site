@@ -1,0 +1,108 @@
+# =============================================================================
+# Dockerfile.rmf-sim-site — the sim image plus the RMF Site toolchain:
+#   1. the `rmf_site_editor` binary and its Vulkan/GTK/X11 runtime libraries;
+#   2. `rmf_site_ros2` (rmf_site_cmake, rmf_site_demos) in the ws_rmf overlay,
+#      so `.site.json` maps can be turned into worlds and nav graphs here.
+#
+# The builder stage duplicates Dockerfile.site-editor's instead of copying the
+# binary from a registry tag, so this image is reproducible from this tree.
+# Keep the builder stages here, in Dockerfile.rmf-sim and in
+# Dockerfile.site-editor in sync (same RMF_SITE_REF and patch).
+# =============================================================================
+
+ARG ROS_DISTRO=lyrical
+ARG SIM_IMAGE=quay.io/nexsoss/open-rmf:lyrical_sim
+
+# -----------------------------------------------------------------------
+# rmf_site_editor builder — mirrors Dockerfile.site-editor's builder
+# stage. `ubuntu:resolute` and not the ROS base on purpose: rmf_site is
+# a plain Rust/Bevy desktop app with no ROS dependency, and building it
+# in the ROS image would put its rustup toolchain in conflict with the
+# one Dockerfile.rmf already installs for ros2_rust.
+# -----------------------------------------------------------------------
+FROM ubuntu:resolute AS site-editor-builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Dependencies per the official rmf_site README, plus X11/GL libs required
+# by Bevy's winit windowing backend on Linux.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl git pkg-config build-essential clang lld \
+    libgtk-3-dev libasound2-dev libudev-dev \
+    libx11-dev libxi-dev libxcursor-dev libxrandr-dev libxkbcommon-dev \
+    libgl1-mesa-dev libxcb-cursor0 \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
+RUN pkg-config --exists alsa && pkg-config --modversion alsa
+
+# Rust via rustup: the distro-packaged rustc is too old for rmf_site.
+ENV RUSTUP_HOME=/opt/rustup \
+    CARGO_HOME=/opt/cargo \
+    PATH=/opt/cargo/bin:$PATH
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
+    sh -s -- -y --default-toolchain stable --profile default
+
+WORKDIR /opt/rmf_site
+
+# rmf_site_editor 0.0.3 (crates.io). Bump together with docker/patches/.
+# See docker/patches/README.md.
+ARG RMF_SITE_REF=53504e0e067377904df250056eaf6595ca662e8e
+
+# A patch that stops applying must fail the build, never be skipped.
+COPY docker/patches/rmf_site_exporter_fixes.patch /tmp/
+
+RUN git init --quiet . \
+ && git fetch --quiet --depth 1 https://github.com/open-rmf/rmf_site.git ${RMF_SITE_REF} \
+ && git checkout --quiet FETCH_HEAD \
+ && git apply --verbose /tmp/rmf_site_exporter_fixes.patch \
+ && cargo build --release --locked
+
+# -----------------------------------------------------------------------
+# sim + site
+# -----------------------------------------------------------------------
+FROM ${SIM_IMAGE}
+
+ARG ROS_DISTRO
+ENV ROS_DISTRO=${ROS_DISTRO}
+ENV DEBIAN_FRONTEND=noninteractive
+
+LABEL org.opencontainers.image.title="open-rmf-sim-site" \
+      org.opencontainers.image.description="Open-RMF simulation packages plus the RMF Site editor and rmf_site_ros2 toolchain" \
+      org.opencontainers.image.vendor="Nexsoss" \
+      org.opencontainers.image.source="https://github.com/nexsoss/Open-RMF" \
+      org.opencontainers.image.documentation="https://github.com/nexsoss/Open-RMF" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.attribution="Open-RMF core packages and rmf_site (Apache-2.0) Copyright Open Robotics"
+
+# Runtime libraries for the Bevy binary copied in below. Vulkan rather
+# than GL because AMD GPUs need the RADV backend (see WGPU_BACKEND).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgtk-3-0 libasound2t64 libudev1 \
+    libx11-6 libxi6 libxcursor1 libxrandr2 \
+    libxkbcommon0 libxkbcommon-x11-0 \
+    libgl1 libxcb-cursor0 \
+    libvulkan1 mesa-vulkan-drivers vulkan-tools libgl1-mesa-dri \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=site-editor-builder /opt/rmf_site/target/release/rmf_site_editor /usr/local/bin/rmf_site_editor
+
+# AMD GPUs require the Vulkan (RADV) backend.
+ENV WGPU_BACKEND=vulkan
+# XDG_RUNTIME_DIR must exist and be writable for DRM/Vulkan device auth
+# to succeed inside the container.
+ENV XDG_RUNTIME_DIR=/tmp/xdg-runtime
+RUN mkdir -p /tmp/xdg-runtime && chmod 700 /tmp/xdg-runtime
+
+# rmf_site_ros2 (pinned in repos/rmf-sim.repos) is already in the sim image;
+# rmf_site_cmake is built there, rmf_site_demos needs the editor so is built
+# here.
+WORKDIR /home/ws_rmf
+RUN /bin/bash -c "source /home/ws_rmf/install/setup.bash && \
+    colcon build --base-paths src_sim --packages-select rmf_site_demos"
+
+# The entrypoint stays the ROS one; run `rmf_site_editor` explicitly.
+ENV RMW_IMPLEMENTATION=rmw_zenoh_cpp
+ENTRYPOINT ["/ros_entrypoint.sh"]
+CMD ["bash"]

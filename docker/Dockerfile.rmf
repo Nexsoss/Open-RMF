@@ -1,13 +1,27 @@
 ARG ROS_DISTRO=lyrical
 
+# All ROS apt packages come from one frozen snapshot of the ROS repository
+# (snapshots.ros.org), so every image built from this tree gets the same
+# package versions, whenever it is built. The base image is pinned by digest
+# to one built from the same sync: dist-upgrade can move packages forward to
+# the snapshot, never back. Bump the two together; this is the single
+# "update ROS" knob (it also decides the rmw_zenoh version, and with it the
+# zenoh-router, which runs this image's own rmw_zenohd).
+ARG ROS_SNAPSHOT=2026-09-18
+ARG ROS_BASE_IMAGE=ros:lyrical-ros-base@sha256:f79cd486fa218596747c45d00ca42101b0303fc6d94ed5adb72145cd6f54b86c
+
 # ============================================================================
 # builder
 # ============================================================================
-FROM ros:${ROS_DISTRO}-ros-base AS builder
+FROM ${ROS_BASE_IMAGE} AS builder
 
 ARG ROS_DISTRO
+ARG ROS_SNAPSHOT
 ENV ROS_DISTRO=${ROS_DISTRO}
 ENV DEBIAN_FRONTEND=noninteractive
+
+COPY docker/apt/ /tmp/apt/
+RUN /tmp/apt/use-ros-snapshot.sh ${ROS_DISTRO} ${ROS_SNAPSHOT} /tmp/apt/ros-snapshots.asc
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git cmake build-essential python3-pip python3-vcstool python3-rosdep \
@@ -47,10 +61,19 @@ RUN apt-get update && rosdep update && \
     rosdep install --from-paths src --ignore-src --rosdistro=${ROS_DISTRO} -y \
     && rm -rf /var/lib/apt/lists/*
 
+# Optional local build patches: each untracked repos/patches/*.sh runs after
+# `vcs import` and before the build (ROS underlay sourced). A clean checkout has
+# none, so this is a no-op. A failing patch fails the build.
+COPY ./repos ./repos
+RUN /bin/bash -c 'shopt -s nullglob; \
+    source /opt/ros/${ROS_DISTRO}/setup.bash; \
+    for patch in repos/patches/*.sh; do \
+      echo "applying local build patch: ${patch}"; \
+      bash "${patch}" || exit 1; \
+    done'
 
-# Lyrical is API-compatible with rolling, so we alias it to "rolling" at compile time.
+# rclrs and rosidl_runtime_rs detect the distro from ROS_DISTRO (set above).
 RUN /bin/bash -c "source /opt/ros/${ROS_DISTRO}/setup.bash && \
-    RUSTFLAGS='--cfg ros_distro=\"rolling\"' \
     colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release"
 
 # Patch: auto-respawn schedule_visualizer_node to work around crash on startup.
@@ -63,12 +86,19 @@ RUN VIZ_LAUNCH_FILE=$(find /home/ws_rmf/install -iname 'visualization.launch.xml
 # ============================================================================
 # slim base
 # ============================================================================
-FROM ros:${ROS_DISTRO}-ros-base
+FROM ${ROS_BASE_IMAGE}
 
 ARG ROS_DISTRO
+ARG ROS_SNAPSHOT
 ENV ROS_DISTRO=${ROS_DISTRO}
 ENV DEBIAN_FRONTEND=noninteractive
 ENV HOME=/home/ws_rmf
+
+# Same snapshot as the builder. Images built FROM this one inherit the apt
+# source, so their apt installs come from the same sync too.
+COPY docker/apt/ /tmp/apt/
+RUN /tmp/apt/use-ros-snapshot.sh ${ROS_DISTRO} ${ROS_SNAPSHOT} /tmp/apt/ros-snapshots.asc \
+ && rm -rf /tmp/apt
 
 LABEL org.opencontainers.image.title="open-rmf-base" \
       org.opencontainers.image.description="Shared base: ROS 2 + Open-RMF core packages compiled from rmf.repos" \
@@ -77,6 +107,7 @@ LABEL org.opencontainers.image.title="open-rmf-base" \
       org.opencontainers.image.documentation="https://github.com/nexsoss/Open-RMF" \
       org.opencontainers.image.licenses="Apache-2.0" \
       org.opencontainers.image.base.name="docker.io/library/ros:lyrical-ros-base" \
+      ros.snapshot="${ROS_SNAPSHOT}" \
       org.opencontainers.image.attribution="Open-RMF core packages (Apache-2.0) Copyright Open Robotics"
 
 # build / runtime deps
@@ -109,6 +140,13 @@ COPY --from=builder /home/ws_rmf/src /home/ws_rmf/src
 
 RUN rosdep init || true \
  && sed -i "\$isource \"/home/ws_rmf/install/setup.bash\"" /ros_entrypoint.sh
+
+# This stage is a fresh base image, so the runtime libraries the builder's
+# rosdep install pulled in must be installed again. rosdep (not a hand-written
+# list) keeps the two stages in step with rmf.repos.
+RUN apt-get update && rosdep update && \
+    rosdep install --from-paths /home/ws_rmf/src --ignore-src --rosdistro=${ROS_DISTRO} -y \
+    && rm -rf /var/lib/apt/lists/*
 
 ENV RMW_IMPLEMENTATION=rmw_zenoh_cpp
 ENTRYPOINT ["/ros_entrypoint.sh"]

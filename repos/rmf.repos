@@ -1,3 +1,6 @@
+# Pinned to upstream `lyrical` branch heads, except:
+#   rmf_ros2: main commit carrying fixes the lyrical branch lacks
+#   rmf_site_map_server: no lyrical branch; main commit
 repositories:
   rmf/ament_cmake_catch2:
     type: git
@@ -6,7 +9,7 @@ repositories:
   rmf/rmf_api_msgs:
     type: git
     url: https://github.com/open-rmf/rmf_api_msgs.git
-    version: 7915f6a
+    version: 92c54ad
   rmf/rmf_battery:
     type: git
     url: https://github.com/open-rmf/rmf_battery.git
@@ -18,7 +21,7 @@ repositories:
   rmf/rmf_internal_msgs:
     type: git
     url: https://github.com/open-rmf/rmf_internal_msgs.git
-    version: 26a7f25
+    version: 3d4df02
   rmf/rmf_ros2:
     type: git
     url: https://github.com/open-rmf/rmf_ros2.git
@@ -26,19 +29,19 @@ repositories:
   rmf/rmf_task:
     type: git
     url: https://github.com/open-rmf/rmf_task.git
-    version: 3943e85
+    version: 4d8d82d
   rmf/rmf_traffic:
     type: git
     url: https://github.com/open-rmf/rmf_traffic.git
-    version: 39f09e7
+    version: 72c6ea3
   rmf/rmf_utils:
     type: git
     url: https://github.com/open-rmf/rmf_utils.git
-    version: main
+    version: 887294b
   rmf/rmf_visualization:
     type: git
     url: https://github.com/open-rmf/rmf_visualization.git
-    version: 6c06184
+    version: b050b85
   rmf/rmf_visualization_msgs:
     type: git
     url: https://github.com/open-rmf/rmf_visualization_msgs.git
@@ -46,16 +49,16 @@ repositories:
   thirdparty/menge_vendor:
     type: git
     url: https://github.com/open-rmf/menge_vendor.git
-    version: master
+    version: 9ac199b
   thirdparty/nlohmann_json_schema_validator_vendor:
     type: git
     url: https://github.com/open-rmf/nlohmann_json_schema_validator_vendor
-    version: 43358d9
+    version: 8e0dcea
   thirdparty/pybind11_json_vendor:
     type: git
     url: https://github.com/open-rmf/pybind11_json_vendor
-    version: cba8192
+    version: 2329120
   rmf/rmf_site_map_server:
     type: git
     url: https://github.com/open-rmf/rmf_site_map_server.git
-    version: main
+    version: 1a096d6

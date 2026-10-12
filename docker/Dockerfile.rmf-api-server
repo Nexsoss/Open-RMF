@@ -19,7 +19,8 @@ ENV RMW_IMPLEMENTATION=rmw_zenoh_cpp
 ENV HOME=/root
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git python3-pip \
+    git python3-pip python3-venv \
+    netcat-openbsd \
     ros-${ROS_DISTRO}-rmf-fleet-msgs \
     ros-${ROS_DISTRO}-rmf-building-map-msgs \
     ros-${ROS_DISTRO}-rmf-door-msgs \
@@ -30,29 +31,31 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-${ROS_DISTRO}-rmf-charger-msgs \
     ros-${ROS_DISTRO}-rmf-reservation-msgs \
     ros-${ROS_DISTRO}-rmf-site-map-msgs \
-    && pip3 install --break-system-packages pipenv \
     && rm -rf /var/lib/apt/lists/*
 
+# The api-server's Python dependencies go in a venv that can still see the
+# system site-packages (rclpy, ROS messages). Installing them into the system
+# Python instead fails whenever one needs a newer version of a package Debian
+# installed (packaging, typing_extensions, ...), which pip cannot replace.
+RUN python3 -m venv --system-site-packages /opt/rmf/venv
+ENV PATH=/opt/rmf/venv/bin:$PATH
+RUN pip install --no-cache-dir pipenv==2026.6.2
+
 WORKDIR /opt/rmf/src/rmf-web
-RUN git clone --single-branch --branch main --depth 1 \
-    https://github.com/open-rmf/rmf-web.git .
+# rmf-web `lyrical` branch head.
+ARG RMF_WEB_REF=de892c7
+RUN git clone https://github.com/open-rmf/rmf-web.git . \
+ && git checkout --quiet ${RMF_WEB_REF}
 
 RUN pipenv requirements > /tmp/requirements.txt
+# Let pip resolve pydantic/asyncpg against this image's Python rather than
+# taking the lockfile's exact versions.
 RUN grep -v -iE "^(asyncpg|pydantic-core|pydantic)" /tmp/requirements.txt > /tmp/requirements-filtered.txt
-RUN pip3 install --break-system-packages -r /tmp/requirements-filtered.txt
+RUN pip install --no-cache-dir -r /tmp/requirements-filtered.txt
 
-# temp hacks to relax pydantic and asyncpg pins in api-server
-RUN find packages/api-server -maxdepth 1 \( -name "pyproject.toml" -o -name "setup.py" -o -name "setup.cfg" \) | xargs grep -l "pydantic\|asyncpg" \
-    | xargs -r sed -i -E \
-        -e 's/pydantic~=2\.8\.0/pydantic>=2.8.0/g' \
-        -e 's/(pydantic\[[a-z]*\])~=2\.8\.0/\1>=2.8.0/g' \
-        -e 's/asyncpg~=0\.29\.0/asyncpg>=0.29.0/g'
+RUN pip install --no-cache-dir -e "./packages/api-server[postgres]"
 
-RUN grep -rE "pydantic~=|asyncpg~=" packages/api-server/pyproject.toml packages/api-server/setup.py packages/api-server/setup.cfg 2>/dev/null || echo "all pins relaxed successfully"
-
-RUN pip3 install --break-system-packages -e "./packages/api-server[postgres]"
-
-RUN pip3 list 2>/dev/null | grep -i uvicorn || echo "uvicorn NOT in pip3 list"
+RUN pip list 2>/dev/null | grep -i uvicorn || echo "uvicorn NOT in pip3 list"
 RUN python3 -c "import uvicorn; print('uvicorn OK:', uvicorn.__file__)"
 
 WORKDIR /opt/rmf/src/rmf-web/packages/api-server

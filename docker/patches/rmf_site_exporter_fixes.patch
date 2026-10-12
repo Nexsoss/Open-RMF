@@ -1,0 +1,107 @@
+diff --git a/crates/rmf_site_editor/src/site/headless_export.rs b/crates/rmf_site_editor/src/site/headless_export.rs
+index 841b41e..04d6261 100644
+--- a/crates/rmf_site_editor/src/site/headless_export.rs
++++ b/crates/rmf_site_editor/src/site/headless_export.rs
+@@ -15,13 +15,13 @@
+  *
+ */
+ 
+-use bevy::prelude::*;
++use bevy::{asset::LoadState, prelude::*};
+ use bevy_rich_text3d::Text3d;
+ 
+ use crate::WorkspaceSaver;
+ 
+ use crate::{
+-    site::{DoorType, GlobalFloorVisibility, LayerVisibility, ModelLoadingState},
++    site::{DoorType, GlobalFloorVisibility, LayerVisibility, ModelLoadingState, TextureImage},
+     Autoload, WorkspaceLoader,
+ };
+ use crossflow::Promise;
+@@ -76,6 +76,8 @@ pub fn headless_export(
+     mut floor_visibilities: Query<&mut GlobalFloorVisibility>,
+     mut doors: Query<&mut DoorType>,
+     texts: Query<Entity, With<Text3d>>,
++    textures: Query<&TextureImage>,
++    asset_server: Res<AssetServer>,
+     mut commands: Commands,
+ ) {
+     let Some(mut autoload) = autoload else {
+@@ -135,7 +137,17 @@ pub fn headless_export(
+         exit.write(bevy::app::AppExit::error());
+     }
+ 
+-    if missing_models.is_empty() {
++    // Textures (e.g. Remote ones fetched over HTTP) load asynchronously, like
++    // models. Exporting before they finish makes mesh collection fail with
++    // "Texture not found" and leaves an empty world file.
++    let textures_pending = textures.iter().any(|texture| {
++        !matches!(
++            asset_server.get_load_state(texture.0.id()),
++            Some(LoadState::Loaded) | Some(LoadState::Failed(_))
++        )
++    });
++
++    if missing_models.is_empty() && !textures_pending {
+         if !export_state.world_loaded {
+             export_state.iterations = 0;
+             export_state.world_loaded = true;
+diff --git a/crates/rmf_site_editor/src/site/sdf_exporter.rs b/crates/rmf_site_editor/src/site/sdf_exporter.rs
+index 127a9a4..c1bfb3a 100644
+--- a/crates/rmf_site_editor/src/site/sdf_exporter.rs
++++ b/crates/rmf_site_editor/src/site/sdf_exporter.rs
+@@ -326,7 +326,23 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
+                 let Some(door) = door else {
+                     continue;
+                 };
+-                if let Ok((_, segments)) = q_doors.get(door.door) {
++                // Not `if let Ok(..)`: a cabin door without DoorSegments used to
++                // be skipped silently here, while sdf.rs still emitted
++                // <uri>meshes/lift_..._<side>.glb</uri> for it. The result was a
++                // world referencing meshes that were never written, which only
++                // surfaced as an unresolved-uri abort at simulation startup.
++                let Ok((_, segments)) = q_doors.get(door.door) else {
++                    return Err(format!(
++                        "Lift [{}] cabin door on face [{}] has no DoorSegments, so its \
++                         meshes cannot be exported. The generated world would reference \
++                         meshes/lift_{}_{}_{{left,right}}.glb without those files existing.",
++                        **lift_name,
++                        face.label(),
++                        get_site_id(site_child)?,
++                        face.label(),
++                    ));
++                };
++                {
+                     // TODO(luca) this is duplicated with door generation, refactor
+                     for (entity, segment_name) in segments
+                         .body
+diff --git a/crates/rmf_site_format/src/legacy/nav_graph.rs b/crates/rmf_site_format/src/legacy/nav_graph.rs
+index 93cd50a..050d3f4 100644
+--- a/crates/rmf_site_format/src/legacy/nav_graph.rs
++++ b/crates/rmf_site_format/src/legacy/nav_graph.rs
+@@ -64,12 +64,24 @@ impl NavGraph {
+             let mut doors = HashMap::new();
+             let mut levels = HashMap::new();
+             let mut lifts = HashMap::new();
+-            for (_, level) in &site.levels {
++            for (level_id, level) in &site.levels {
+                 let mut anchor_to_vertex = HashMap::new();
+                 let mut vertices = Vec::new();
+                 let mut lanes_to_include = HashSet::new();
+                 // Add vertices for anchors that are in lifts
+                 for lift in site.lifts.values() {
++                    // Only emit cabin vertices on levels this lift actually serves.
++                    // Without this every lift gets a cabin waypoint on every level, and
++                    // rmf_fleet_adapter's parse_graph.cpp then chains all of them into
++                    // LiftMove lanes -- handing the planner routes that command the lift
++                    // to floors its plugin cannot reach.
++                    if !lift
++                        .cabin_doors
++                        .values()
++                        .any(|door| door.visits.0.contains(level_id))
++                    {
++                        continue;
++                    }
+                     let lift_name = &lift.properties.name.0;
+                     let Some(center) = lift.properties.center(site) else {
+                         error!(

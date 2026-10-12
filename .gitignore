@@ -1,1 +1,27 @@
 maps/*
+
+# Local, untracked build patches applied by docker/Dockerfile.rmf's
+# patch hook. Deliberately not tracked: anything in here is a temporary
+# workaround 
+repos/patches/
+
+# Editor / assistant tooling config, machine-local.
+.claude/
+.kilo/
+CLAUDE.md
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Local run and build output
+.rmf_schedule_node.yaml
+build/
+install/
+log/
+.env
+
+# Your own site packages made from the template Only example_site is published.
+templates/site_sim/*/
+!templates/site_sim/example_site/
+!templates/site_sim/docs/

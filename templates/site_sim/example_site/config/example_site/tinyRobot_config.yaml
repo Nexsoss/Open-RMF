@@ -1,0 +1,52 @@
+# Fleet config for the tinyRobot fleet in example_site.
+#
+# Every robot listed under `robots:` must also exist in the site file as a
+# TinyRobot model instance with the SAME name, and its `charger` must be a
+# nav-graph location tagged Charger. A robot listed here but missing from the
+# site never appears; a robot in the site but missing here is simulated but
+# never commanded by RMF.
+
+rmf_fleet:
+  name: "tinyRobot"
+  limits:
+    linear: [0.5, 0.75] # velocity, acceleration
+    angular: [0.6, 2.0] # velocity, acceleration
+  profile: # Robot profile is modelled as a circle
+    footprint: 0.3 # radius in m
+    vicinity: 0.5 # radius in m
+  reversible: True
+  battery_system:
+    voltage: 12.0 # V
+    capacity: 24.0 # Ahr
+    charging_current: 5.0 # A
+  mechanical_system:
+    mass: 20.0 # kg
+    moment_of_inertia: 10.0 # kgm^2
+    friction_coefficient: 0.22
+  ambient_system:
+    power: 20.0 # W
+  tool_system:
+    power: 0.0 # W
+  recharge_threshold: 0.10
+  recharge_soc: 1.0
+  publish_fleet_state: 10.0
+  account_for_battery_drain: True
+  task_capabilities:
+    loop: True
+    delivery: True
+  actions: ["teleop"]
+  finishing_request: "charge" # [park, charge, nothing]
+  responsive_wait: False
+  use_parking_reservations: True
+  reassign_task_interval: 120 # seconds
+  robots:
+    tinyRobot1:
+      charger: "tinyRobot1_charger"
+    tinyRobot2:
+      charger: "tinyRobot2_charger"
+
+fleet_manager:
+  ip: "127.0.0.1"
+  port: 22011
+  user: "some_user"
+  password: "some_password"

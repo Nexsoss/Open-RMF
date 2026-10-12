@@ -1,13 +1,17 @@
+# Pinned to upstream `lyrical` branch heads, except:
+#   rmf_demos: main commit with the rmf_demos_tasks futures fix (#365) the
+#     lyrical branch lacks; without it dispatch_* fail on current rclpy
+#   rmf_site_ros2: no lyrical branch; main commit
 repositories:
   demonstrations/rmf_demos:
     type: git
     url: https://github.com/open-rmf/rmf_demos.git
-    version: de9a718
+    version: 51c6463
   rmf/rmf_simulation:
     type: git
     url: https://github.com/open-rmf/rmf_simulation.git
-    version: fcf6fca
-  rmf/rmf_traffic_editor:
+    version: e15d813
+  rmf/rmf_site_ros2:
     type: git
-    url: https://github.com/open-rmf/rmf_traffic_editor.git
-    version: 922a663
+    url: https://github.com/open-rmf/rmf_site_ros2.git
+    version: 606e771

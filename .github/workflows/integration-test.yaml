@@ -42,6 +42,7 @@ jobs:
 
       - name: Pull nightly images built by the triggering run
         run: |
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:nightly_${{ steps.tags.outputs.short }}
           docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:nightly_${{ steps.tags.outputs.short }}_sim
           docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:nightly_${{ steps.tags.outputs.short }}_api-server
           docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:nightly_${{ steps.tags.outputs.short }}_web-dashboard
