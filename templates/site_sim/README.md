@@ -11,7 +11,7 @@ templates/site_sim/
 ├── compose.override.yaml         # runs your build as the stack's rmf-sim
 ├── TUTORIAL.md                   # step by step: floorplan PNG -> site -> robots running
 ├── docs/                         # screenshots for the tutorial
-└── example_site/                 # a ROS 2 package; rename it for your site
+└── example_site/                 # a finished site package; add yours next to it
     ├── CMakeLists.txt            # .site.json -> .world + nav graphs, at build time
     ├── package.xml
     ├── maps/example_site/example_site.site.json
@@ -41,8 +41,9 @@ docker exec -it rmf-sim bash -c 'source /home/ws_rmf/install/setup.bash && \
   ros2 run rmf_demos_tasks dispatch_patrol -p office_a meeting -n 2 --use_sim_time'
 ```
 
-To watch Gazebo instead of running headless, see "Debugging Gazebo / RViz" in
-the main README.
+To watch Gazebo instead of running headless, see
+[RMF, Gazebo and RViz, one terminal each](../../README.md#rmf-gazebo-and-rviz-one-terminal-each)
+in the main README.
 
 ## 2. Make it your site
 
@@ -50,24 +51,30 @@ the main README.
 a floorplan PNG and scaling it, drawing walls, a floor, lanes and named
 waypoints, tagging chargers, adding TinyRobots (including the **Robot**
 properties without which they never move), writing the fleet config, and
-building and running the result. It rebuilds this `example_site` from its
-floorplan, so the example doubles as the answer key.
+building and running the result. It creates a new package, `tutorial_site`,
+from the same floorplan, so `example_site` doubles as the answer key.
 
-In short:
+In short, to make a site called `tutorial_site`, next to `example_site`:
 
-1. Author `my_site.site.json` in the Site Editor, with the floorplan image
+1. Create `tutorial_site/maps/tutorial_site/` and author
+   `tutorial_site.site.json` there in the Site Editor, with the floorplan image
    next to it.
-2. Copy `example_site/` to `my_site/`, rename every `example_site`, and put
-   your `.site.json` and image in `maps/my_site/`.
-3. List the robots in `config/my_site/tinyRobot_config.yaml`. Each name must
-   match a robot in the site, and each `charger` must be a location tagged
-   Charger.
+2. Add the supporting files, copied from `example_site` with the name changed:
+   `package.xml`, `CMakeLists.txt`, `launch/tutorial_site.launch.xml` and
+   `config/tutorial_site/tinyRobot_config.yaml`.
+3. List the robots in the fleet config. Each name must match a robot in the
+   site, and each `charger` must be a location tagged Charger.
 4. Build and run:
 
    ```bash
-   SITE_PACKAGE=my_site docker compose -f docker-compose.yaml \
-       -f templates/site_sim/compose.override.yaml up -d --build
+   export SITE_PACKAGE=tutorial_site
+   docker compose -f docker-compose.yaml -f templates/site_sim/compose.override.yaml build rmf-sim
+   docker compose -f docker-compose.yaml -f templates/site_sim/compose.override.yaml up -d
    ```
+
+Packages you add here are ignored by git, so your own sites stay out of this
+repository. In a fork where you do want to commit one, add a matching
+`!templates/site_sim/<name>/` line to `.gitignore`.
 
 ## Rules worth knowing
 

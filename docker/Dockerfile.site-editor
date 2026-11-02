@@ -70,6 +70,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libvulkan1 mesa-vulkan-drivers vulkan-tools libgl1-mesa-dri \
     && rm -rf /var/lib/apt/lists/*
 
+# Unused here, and flagged by vulnerability scans when its Go runtime ages: the
+# Pebble service manager that the Ubuntu base image ships.
+RUN rm -rf /usr/bin/pebble /var/lib/pebble
+
 COPY --from=builder /opt/rmf_site/target/release/rmf_site_editor /usr/local/bin/rmf_site_editor
 
 WORKDIR /root/site_maps

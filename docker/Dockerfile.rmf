@@ -138,6 +138,11 @@ COPY --from=builder /home/ws_rmf/install /home/ws_rmf/install
 
 COPY --from=builder /home/ws_rmf/src /home/ws_rmf/src
 
+# Unused at run time, and flagged by vulnerability scans: upstream's dev-only
+# schema checker (with its old Cargo.lock) and the Pebble service manager that
+# the Ubuntu base image ships.
+RUN rm -rf /home/ws_rmf/src/rmf/rmf_api_msgs/.internal_tools /usr/bin/pebble /var/lib/pebble
+
 RUN rosdep init || true \
  && sed -i "\$isource \"/home/ws_rmf/install/setup.bash\"" /ros_entrypoint.sh
 

@@ -1,8 +1,11 @@
 # Runs your own site package (built by ./Dockerfile) as the stack's rmf-sim.
 # From the repository root:
 #
-#   SITE_PACKAGE=my_site docker compose -f docker-compose.yaml \
-#       -f templates/site_sim/compose.override.yaml up -d --build
+#   export SITE_PACKAGE=tutorial_site
+#   docker compose -f docker-compose.yaml -f templates/site_sim/compose.override.yaml build rmf-sim
+#   docker compose -f docker-compose.yaml -f templates/site_sim/compose.override.yaml up -d
+#
+# Build only rmf-sim: `up --build` would rebuild the whole stack from source.
 #
 # The stock rmf-sim already runs the unmodified example_site; this override is
 # for your changes to it, or your own package. Relative paths resolve against

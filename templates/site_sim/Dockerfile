@@ -15,7 +15,7 @@ RUN /bin/bash -c "source /home/ws_rmf/install/setup.bash && \
 # rmf_site_editor exits 0 even when an export fails, leaving a 0-byte .world.
 # Fail the build instead of shipping an image whose simulator cannot load its
 # world.
-RUN /bin/bash -c 'set -eo pipefail; \
+RUN /bin/bash -c 'set -eo pipefail; shopt -s nullglob; \
     share=/home/ws_rmf/install/${SITE_PACKAGE}/share/${SITE_PACKAGE}/maps; \
     found=0; \
     for w in "$share"/*/*.world; do \

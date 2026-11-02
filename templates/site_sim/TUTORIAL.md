@@ -11,10 +11,20 @@ with two `tinyRobot`s, the API server and the web dashboard. You will:
 5. place two TinyRobots and make them robots RMF can drive,
 6. package the site, write the tinyRobot fleet config, build and run it.
 
-The input is the example floorplan shipped in this folder,
-[`example_site.png`](example_site/maps/example_site/example_site.png). The
-finished [`example_site`](example_site/) is the answer key: if you follow
-the steps, your `my_site` ends up the same.
+You build a new site package called **`tutorial_site`**, next to the shipped
+[`example_site`](example_site/):
+
+```
+templates/site_sim/
+├── example_site/    # shipped: the finished site, your answer key
+└── tutorial_site/   # you create this, starting in step 1
+```
+
+`tutorial_site` isn't in the repository. You create every file in it by
+following the steps, and git ignores it. The only input is the example
+floorplan,
+[`example_site.png`](example_site/maps/example_site/example_site.png). If you
+follow the steps, your site ends up the same as `example_site`.
 
 The tutorial uses **RMF Site Editor 0.0.3**, the current release on
 crates.io. The editor image from this repository is built from that same
@@ -98,12 +108,15 @@ as tabs. The steps are the same, but the screenshots won't match.)
 
 ## Step 1: prepare a folder and start the editor
 
-Put the floorplan in its own folder, named after your site. The editor stores
-the image path *relative to the site file*, so keep the two side by side:
+Create the package's map folder and put the floorplan in it. A package's map
+folder has this exact shape, `maps/<name>/`, with the site file and image
+inside named after the site. The editor stores the image path *relative to
+the site file*, so keep the two side by side. From the repository root:
 
 ```bash
-mkdir -p maps/my_site
-cp templates/site_sim/example_site/maps/example_site/example_site.png maps/my_site/my_site.png
+mkdir -p templates/site_sim/tutorial_site/maps/tutorial_site
+cp templates/site_sim/example_site/maps/example_site/example_site.png \
+   templates/site_sim/tutorial_site/maps/tutorial_site/tutorial_site.png
 ```
 
 Start the editor (installation:
@@ -131,13 +144,14 @@ run instead. With an NVIDIA GPU, add `--nvidia` to `distrobox create`.
 ## Step 2: create the site
 
 1. Click **Create new file**.
-2. In the save dialog, go to this repository's `maps/my_site/` and type the
-   name
-   **`my_site`**, without any extension. Then click **Save**.
+2. In the save dialog, go to `templates/site_sim/tutorial_site/maps/tutorial_site/`
+   in this repository and type the name **`tutorial_site`**, without any
+   extension. Then click **Save**. The file on disk appears the first time
+   you save (step 3), as `tutorial_site.site.json`.
    - The site's name is the file name minus its last extension. If you type
-     `my_site.site.json`, the site is called `my_site.site`, and every
-     generated file is named after that. The name can't be changed in the
-     editor afterwards.
+     `tutorial_site.site.json`, the site is called `tutorial_site.site`, and
+     every generated file is named after that. The name can't be changed in
+     the editor afterwards.
 3. You get an empty level **L1**. Press **F2** (mouse over the canvas) for
    the top-down view.
 4. In the right panel, close **Scenarios** and **Tasks** (click their
@@ -146,8 +160,8 @@ run instead. With an NVIDIA GPU, add `--nvidia` to `distrobox create`.
 ## Step 3: add the floorplan and give it a scale
 
 1. Click the 🖼️ **Drawing** tool. Leave **Source** on **Local** and
-   **Relative** ticked, click **Browse**, and pick `my_site.png`. The box
-   shows just `my_site.png`: the path is relative to the site file.
+   **Relative** ticked, click **Browse**, and pick `tutorial_site.png`. The box
+   shows just `tutorial_site.png`: the path is relative to the site file.
 2. Click **Add Drawing**.
 
    ![Adding the drawing](docs/02-add-drawing.png)
@@ -155,7 +169,7 @@ run instead. With an NVIDIA GPU, add `--nvidia` to `distrobox create`.
 3. Select the drawing: open **Layers**, and under **Drawings** click the
    first (select) icon on the drawing's row. Then close **Layers** again,
    so the drawing's fields in **Inspect** come into view. Set:
-   - **Name**: `my_site`
+   - **Name**: `tutorial_site`
    - **Pixels per meter**: `50`
    - **x**: `-1`, **y**: `13`. This is where the image's **top-left corner**
      goes, in metres.
@@ -362,56 +376,80 @@ you place gets them.
 
 The robot names matter: the fleet config in step 10 refers to them.
 
-## Step 9: what you have now
+## Step 9: check the export
 
-`maps/my_site/` contains `my_site.site.json` and `my_site.png`. You don't need
-to export anything from the editor. The package build in the next step
-generates the Gazebo world and the nav graph from the `.site.json`.
+`maps/tutorial_site/` now contains `tutorial_site.site.json` and
+`tutorial_site.png`. You don't need to export anything from the editor: the
+package build generates the Gazebo world and the nav graph from the
+`.site.json`. It's still worth checking now, while mistakes are cheap to fix.
 
-To look at the generated files anyway, use **File > Export Sdf** and **File >
-Export Nav Graphs**. Or, without the GUI:
+Use **File > Export Sdf** and **File > Export Nav Graphs**, into a folder
+outside the package. Or, without the GUI, from the repository root:
 
 ```bash
-docker run --rm -v ./maps/my_site:/w -w /w --entrypoint bash quay.io/nexsoss/open-rmf:lyrical_sim-site \
-  -c 'mkdir -p out/nav_graphs && rmf_site_editor my_site.site.json --export-sdf out/ --export-nav out/nav_graphs/'
+mkdir -p /tmp/tutorial_site_out/nav_graphs
+docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp \
+  -v "$PWD/templates/site_sim/tutorial_site/maps/tutorial_site:/w:ro" -w /w \
+  -v /tmp/tutorial_site_out:/out --entrypoint rmf_site_editor \
+  quay.io/nexsoss/open-rmf:lyrical_sim-site \
+  tutorial_site.site.json --export-sdf /out --export-nav /out/nav_graphs
 ```
 
-`out/my_site.world` should contain `<uri>model://TinyRobot</uri>` twice, with
-a `slotcar` plugin. `out/nav_graphs/tinyRobot.nav.yaml` should list your 8
+`/tmp/tutorial_site_out/tutorial_site.world` should contain
+`<uri>model://TinyRobot</uri>` twice, with a `slotcar` plugin.
+`/tmp/tutorial_site_out/nav_graphs/tinyRobot.nav.yaml` should list your 8
 waypoint names.
 
-## Step 10: make it a package and write the fleet config
+## Step 10: turn the folder into a package
 
-From the repository root, copy the example package and rename everything to
-`my_site`:
+So far `tutorial_site/` only holds the map. To build and run it, it needs the
+same supporting files as `example_site`: a package definition, a build file,
+a fleet config and a launch file. You will end up with:
+
+```
+templates/site_sim/tutorial_site/
+├── package.xml                                # 10a: the package's name and dependencies
+├── CMakeLists.txt                             # 10b: generates world + nav graphs at build time
+├── config/tutorial_site/tinyRobot_config.yaml # 10c: the fleet and its robots
+├── launch/tutorial_site.launch.xml            # 10d: starts RMF, Gazebo and the fleet adapter
+└── maps/tutorial_site/                        # steps 1-8
+    ├── tutorial_site.site.json
+    └── tutorial_site.png
+```
+
+The quickest way is to copy each file from `example_site` and change the
+name. From the repository root:
 
 ```bash
 cd templates/site_sim
-cp -r example_site my_site
-cd my_site
-mv maps/example_site maps/my_site
-mv config/example_site config/my_site
-mv launch/example_site.launch.xml launch/my_site.launch.xml
-rm maps/my_site/example_site.*
-grep -rl example_site . | xargs sed -i 's/example_site/my_site/g'
-cp ../../../maps/my_site/my_site.site.json ../../../maps/my_site/my_site.png maps/my_site/
-cd ../../..
+mkdir -p tutorial_site/config/tutorial_site tutorial_site/launch
+cp example_site/package.xml example_site/CMakeLists.txt tutorial_site/
+cp example_site/config/example_site/tinyRobot_config.yaml tutorial_site/config/tutorial_site/
+cp example_site/launch/example_site.launch.xml tutorial_site/launch/tutorial_site.launch.xml
+sed -i 's/example_site/tutorial_site/g' \
+  tutorial_site/package.xml tutorial_site/CMakeLists.txt \
+  tutorial_site/config/tutorial_site/tinyRobot_config.yaml \
+  tutorial_site/launch/tutorial_site.launch.xml
+cd ../..
 ```
 
-The package now has:
+Don't copy `example_site/maps`: your own map is already in place. Then go
+through each file to see what it does and what must match your site. For this
+tutorial the copies are already correct. For a site of your own, these are
+the parts you change.
 
-```
-my_site/
-├── CMakeLists.txt                       # generates world + nav graphs at build time
-├── package.xml
-├── maps/my_site/my_site.site.json       # your site
-├── maps/my_site/my_site.png             # its floorplan (shown in the dashboard)
-├── config/my_site/tinyRobot_config.yaml # the fleet config
-└── launch/my_site.launch.xml            # starts RMF, Gazebo and the fleet adapter
-```
+**10a. `package.xml`** names the package. `<name>` must be `tutorial_site`,
+the same as the folder. Update the `<description>` and `<maintainer>` too. The
+dependencies stay as they are: `rmf_site_cmake` generates the world, and the
+`rmf_demos*` packages and `rmf_site_map_server` run it.
 
-**The fleet config,** `config/my_site/tinyRobot_config.yaml`, describes the
-fleet to RMF. The fields that must agree with your site:
+**10b. `CMakeLists.txt`** builds the package. `project(...)` must match the
+package name. `rmf_site_generate_map_package` turns every
+`maps/<name>/<name>.site.json` into a `.world` and nav graphs by running the
+editor's export, so you never commit generated files.
+
+**10c. `config/tutorial_site/tinyRobot_config.yaml`** describes the fleet to
+RMF. The fields that must agree with your site:
 
 ```yaml
 rmf_fleet:
@@ -430,16 +468,33 @@ rmf_fleet:
   defaults. Keep `profile.footprint` in step with the robot's Collision
   Radius.
 
-**The launch file,** `launch/my_site.launch.xml`, points the fleet adapter at
-the nav graph by its file name, `nav_graphs/tinyRobot.nav.yaml`. If your graph
-has a different name, change that path to match.
+**10d. `launch/tutorial_site.launch.xml`** starts everything. It must name the
+package and map in four places:
+
+| Line | Must point at |
+|---|---|
+| `config_file` of `rmf_demos/common.launch.xml` | `maps/tutorial_site/tutorial_site.site.json` |
+| `map_package` and `map_name` of `simulation.launch.xml` | `tutorial_site` |
+| `nav_graph_file` of the fleet adapter | `maps/tutorial_site/nav_graphs/tinyRobot.nav.yaml` |
+| `config_file` of the fleet adapter | `config/tutorial_site/tinyRobot_config.yaml` |
+
+The nav graph's file name comes from the graph's name in step 5. If you named
+it something else, change that path to match.
 
 ## Step 11: build and run
 
+From the repository root, build your package, then start the stack:
+
 ```bash
-SITE_PACKAGE=my_site docker compose -f docker-compose.yaml \
-    -f templates/site_sim/compose.override.yaml up -d --build
+export SITE_PACKAGE=tutorial_site
+docker compose -f docker-compose.yaml -f templates/site_sim/compose.override.yaml build rmf-sim
+docker compose -f docker-compose.yaml -f templates/site_sim/compose.override.yaml up -d
 ```
+
+The build takes under a minute once the image is downloaded: it adds your
+package on top of the published `lyrical_sim-site` image. Don't use
+`up -d --build`, which rebuilds every image in the stack from source. In a new
+terminal, run the `export` again, or the stack starts `example_site`.
 
 The build fails with `FATAL: empty world` if the world couldn't be generated
 (see [Troubleshooting](#troubleshooting)). Once the containers are healthy:
@@ -460,8 +515,8 @@ The build fails with `FATAL: empty world` if the world couldn't be generated
 To watch the robots in Gazebo and RViz, run the simulation from a distrobox
 made from your image instead of the compose `rmf-sim` service. See
 [RMF, Gazebo and RViz, one terminal each](../../README.md#rmf-gazebo-and-rviz-one-terminal-each);
-use `localhost/open-rmf:lyrical_my_site` as the image and launch
-`my_site my_site.launch.xml`.
+use `localhost/open-rmf:lyrical_tutorial_site` as the image and launch
+`tutorial_site tutorial_site.launch.xml`.
 
 ## Adding another robot
 
@@ -488,9 +543,9 @@ use `localhost/open-rmf:lyrical_my_site` as the image and launch
 | A robot is in Gazebo but never gets tasks | Its name differs between the site and the fleet config | Make the names identical |
 | `tinyRobot.nav.yaml` is missing, or called `<Unnamed>.nav.yaml` | The graph's name box still had `<Unnamed>` in it | Rename the graph (step 5) |
 | A waypoint is missing from tasks or the nav graph | Its location is not on a lane point | Move it onto a lane point |
-| Generated files are called `my_site.site.world` | The site was created with `.site.json` typed in the name | Edit `"name"` under `"properties"` at the top of the `.site.json` |
+| Generated files are called `tutorial_site.site.world` | The site was created with `.site.json` typed in the name | Edit `"name"` under `"properties"` at the top of the `.site.json` |
 | Blank map in the dashboard | No drawing, or its image is not next to the `.site.json` | Check the drawing's path in **Inspect** (Browse again if needed) |
-| The drawing path looks like `../other/../my_site/my_site.png` | **Save As** to another folder rewrote the relative path | Select the drawing, **Browse** to the image again, save |
+| The drawing path looks like `../other/../tutorial_site/tutorial_site.png` | **Save As** to another folder rewrote the relative path | Select the drawing, **Browse** to the image again, save |
 | Something disappeared | Delete/Backspace with it selected; there is no undo | Close the editor without saving, start it again and use **Open a file** |
 | The status bar shows `The state is missing from the workflow buffer` and the Floor tool stops | The floor's first click was on an existing point (a 0.0.3 bug) | Start the floor on an empty spot, or draw the floor before the walls (step 4) |
 | Gazebo exits on start with `ODE INTERNAL ERROR … assertion "vertices" failed` | A non-static model whose mesh the editor can't load was exported as an empty collision mesh | Make that model static, or remove it |

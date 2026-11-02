@@ -141,8 +141,8 @@ release, and the images build that same version. To turn a site into a
 simulated world with robots, follow the
 [tutorial](templates/site_sim/TUTORIAL.md).
 
-Keep your sites anywhere in your home directory, e.g. this repository's
-`maps/` (gitignored).
+Keep your sites anywhere in your home directory. The tutorial keeps its site
+in `templates/site_sim/tutorial_site/` (gitignored).
 
 ### Option 1: install from crates.io (no container)
 
@@ -162,7 +162,7 @@ which you run with:
 
 ```bash
 rmf_site_editor                      # welcome screen: create or open a site
-rmf_site_editor path/to/my_site.site.json
+rmf_site_editor path/to/your_site.site.json
 ```
 
 - Keep `--version 0.0.3 --locked`: they give exactly the version the
@@ -281,8 +281,8 @@ To get the Gazebo window and RViz from terminal 2 alone, launch with
 
 **Your own site:** build its image with the
 [site template](templates/site_sim/README.md), make a distrobox from that
-image (e.g. `distrobox create --name my-site --image localhost/open-rmf:lyrical_my_site`),
-and launch `my_site my_site.launch.xml` in terminal 2.
+image (e.g. `distrobox create --name tutorial-site --image localhost/open-rmf:lyrical_tutorial_site`),
+and launch `tutorial_site tutorial_site.launch.xml` in terminal 2.
 
 **Good to know:**
 
